@@ -35,7 +35,7 @@ fn main() -> anyhow::Result<()> {
         .chain(fern::log_file(logpath)?)
         .apply()?;
 
-    info!("Initializing log 3");
+    info!("Initializing log 4");
 
     imk::register_controller();
 

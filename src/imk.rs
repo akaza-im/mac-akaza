@@ -19,13 +19,21 @@ pub unsafe fn connect_imkserver(name: id /* NSString */, identifer: id /* NSStri
 }
 
 pub fn register_controller() {
+    info!("register controller!");
   let super_class = class!(IMKInputController);
   let mut decl = ClassDecl::new("AkazaInputController", super_class).unwrap();
 
   unsafe {
+    /*
     decl.add_method(
       sel!(inputText:client:),
       input_text as extern "C" fn(&Object, Sel, id, id) -> BOOL,
+    );
+    */
+    // https://github.com/phracker/MacOSX-SDKs/blob/master/MacOSX10.5.sdk/System/Library/Frameworks/InputMethodKit.framework/Versions/A/Headers/IMKInputController.h#L73
+    decl.add_method(
+      sel!(handleEvent:client:),
+      handle_event as extern "C" fn(&Object, Sel, id, id) -> BOOL,
     );
   }
   decl.register();
@@ -45,15 +53,30 @@ extern "C" fn input_text(_this: &Object, _cmd: Sel, text: id, sender: id) -> BOO
   return NO;
 }
 
+// GyalM は handle_event を利用している。
+extern "C" fn handle_event(_this: &Object, _cmd: Sel, event: id, _sender: id) -> BOOL {
+    // https://developer.apple.com/documentation/appkit/nsevent?language=objc
+  info!("Got handle_event");
+  unsafe {
+      // [2023-01-27][21:44:41][mac_akaza::imk][INFO] Object description: NSEvent: type=KeyDown
+      // loc=(0,0) time=16312.6 flags=0 win=0x0 winNum=0 ctxt=0x0 chars="o" unmodchars="o" repeat=0
+      // keyCode=31
+  // u64 固定でいいのかは謎
+  let type_: u64 = msg_send![event, type];
+  info!("Got handle_event: type={}", type_);
+  describe(event);
+  /*
+  let key_code: u16 = msg_send![event, keyCode];
+  info!("Got handle_event: key_code={}", key_code);
+  */
+  }
+  return NO;
+}
+
 fn convert(text: &str) -> Option<String> {
   info!("convert: {}", text);
   let mut outs = HashMap::new();
-  outs.insert("l", vec!["l", "I", "|"]);
-  outs.insert("1", vec!["l", "1", "I"]);
-  outs.insert("I", vec!["l", "I", "|"]);
-  outs.insert("O", vec!["O", "0"]);
-  outs.insert("0", vec!["O", "0"]);
-  outs.insert(" ", vec![" ", "　"]);
+  outs.insert(" ", vec![" "]);
 
   if let Some(list) = outs.get(text) {
     let i: usize = 0_usize;
@@ -66,7 +89,7 @@ fn convert(text: &str) -> Option<String> {
 pub unsafe fn describe(obj: *mut Object) {
   let description: *mut Object = msg_send![obj, description];
   if let Some(desc_str) = to_s(description) {
-    println!("Object description: {}", desc_str);
+    info!("Object description: {}", desc_str);
   }
 }
 
