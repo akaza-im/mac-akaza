@@ -1,6 +1,9 @@
 use cocoa::appkit::NSEventType;
 use cocoa::appkit::NSKeyDown;
-use cocoa::base::{id, BOOL, NO};
+use cocoa::base::{id, BOOL, NO, nil, YES};
+use cocoa::foundation::NSString;
+use cocoa::foundation::NSNotFound;
+
 
 use log::info;
 use objc::declare::ClassDecl;
@@ -22,6 +25,8 @@ const NSEventModifierFlagCommand: u64 = 1 << 20;
 // https://stackoverflow.com/questions/3202629/where-can-i-find-a-list-of-mac-virtual-key-codes
 
 const KEY_DELETE: u16 = 51;
+const KEY_RETURN: u16 = 0x24;
+const KEY_MUHENKAN: u16 = 0x66;
 
 #[link(name = "InputMethodKit", kind = "framework")]
 extern "C" {}
@@ -91,7 +96,7 @@ extern "C" fn input_text(_this: &Object, _cmd: Sel, text: id, sender: id) -> BOO
 */
 
 // GyalM は handle_event を利用している。
-extern "C" fn handle_event(this: &mut Object, _cmd: Sel, event: id, _sender: id) -> BOOL {
+extern "C" fn handle_event(this: &mut Object, _cmd: Sel, event: id, sender: id) -> BOOL {
     // https://developer.apple.com/documentation/appkit/nsevent?language=objc
     info!("Got handle_event");
 
@@ -102,17 +107,19 @@ extern "C" fn handle_event(this: &mut Object, _cmd: Sel, event: id, _sender: id)
         // loc=(0,0) time=16312.6 flags=0 win=0x0 winNum=0 ctxt=0x0 chars="o" unmodchars="o" repeat=0
         // keyCode=31
         let type_: NSEventType = msg_send![event, type];
-        info!("Got handle_event: type={}", type_ as u64);
 
         if type_ != NSKeyDown {
             return NO;
         }
 
         let eventString = msg_send![event, characters];
-        let _keyCode: u16 = msg_send![event, keyCode];
+        let keyCode: u16 = msg_send![event, keyCode];
         let modifierFlags: u64 = msg_send![event, modifierFlags];
+        info!("Got handle_event: type={} keyCode={:#02x}", type_ as u64, keyCode);
 
         // get ctx
+        // 本当は Constructor で初期化したいが、上手くやれなかったので、いったん
+        // find_or_create する
         info!("CTX!");
         let ctx: *mut libc::c_void = *this.get_ivar("ctx");
         let ctx = if ctx.is_null() {
@@ -129,6 +136,21 @@ extern "C" fn handle_event(this: &mut Object, _cmd: Sel, event: id, _sender: id)
             &mut *(ctx as *mut InputContext)
         };
 
+        if keyCode == KEY_RETURN {
+            if ctx.preedit.is_empty() {
+                return NO;
+            } else {
+                // 確定処理
+                info!("insertText!!!");
+                let _: () = msg_send![sender, insertText: NSString::alloc(nil).init_str(&ctx.preedit.clone())];
+                ctx.preedit.clear();
+                return YES;
+            }
+        } else if keyCode == KEY_MUHENKAN {
+            // 何もする必要なし
+            return YES;
+        }
+
         if let Some(s) = to_s(eventString) {
             let chars = s.as_bytes();
             if !chars.is_empty() {
@@ -142,7 +164,15 @@ extern "C" fn handle_event(this: &mut Object, _cmd: Sel, event: id, _sender: id)
                 {
                     info!("HENKAN!: {}", c);
                     ctx.preedit += str::from_utf8_unchecked(&[c]);
+                    info!("trying setMarkedText!: {}", c);
+
+                    // let not_found: id = msg_send![class!(NSRange), alloc];
+                    // let not_found: id = msg_send![not_found, location:NSNotFound length: NSNotFound];
+                    let _: () = msg_send![sender, setMarkedText:NSString::alloc(nil).init_str(&ctx.preedit.clone())];
+                    info!("done setMarkedText!: {}", c);
+                    // let _: () = msg_send![sender, setMarkedText:NSString::alloc(nil).init_str(&ctx.preedit) selectionRange: not_found replacementRange: not_found];
                     info!("PREEDIT!: {}", ctx.preedit);
+                    return YES;
                 }
             }
         }
