@@ -2,8 +2,8 @@ use cocoa::appkit::{NSApp, NSApplication};
 use cocoa::base::{id, nil, BOOL};
 use cocoa::foundation::{NSAutoreleasePool, NSString};
 
-use log::info;
 use fern;
+use log::info;
 use log::LevelFilter;
 
 #[macro_use]
@@ -12,10 +12,10 @@ extern crate objc;
 mod imk;
 
 fn main() -> anyhow::Result<()> {
-        let logpath = xdg::BaseDirectories::with_prefix("akaza")?
-                    .create_cache_directory("logs")?
-                            .join("mac-akaza.log");
-            println!("log file path: {}", logpath.to_string_lossy());
+    let logpath = xdg::BaseDirectories::with_prefix("akaza")?
+        .create_cache_directory("logs")?
+        .join("mac-akaza.log");
+    println!("log file path: {}", logpath.to_string_lossy());
 
     // log file をファイルに書いていく。
     // ~/.cache/akaza/logs/mac-akaza.log に書く。
