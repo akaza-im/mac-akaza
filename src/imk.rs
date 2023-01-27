@@ -2,6 +2,7 @@ use cocoa::base::{id, nil, BOOL, NO, YES};
 use cocoa::foundation::NSString;
 use objc::declare::ClassDecl;
 use objc::runtime::{Object, Sel};
+use log::info;
 
 use std::collections::HashMap;
 use std::{slice, str};
@@ -45,6 +46,7 @@ extern "C" fn input_text(_this: &Object, _cmd: Sel, text: id, sender: id) -> BOO
 }
 
 fn convert(text: &str) -> Option<String> {
+  info!("convert: {}", text);
   let mut outs = HashMap::new();
   outs.insert("l", vec!["l", "I", "|"]);
   outs.insert("1", vec!["l", "1", "I"]);

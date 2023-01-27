@@ -14,11 +14,11 @@ mod imk;
 fn main() -> anyhow::Result<()> {
         let logpath = xdg::BaseDirectories::with_prefix("akaza")?
                     .create_cache_directory("logs")?
-                            .join("ibus-akaza.log");
+                            .join("mac-akaza.log");
             println!("log file path: {}", logpath.to_string_lossy());
 
     // log file をファイルに書いていく。
-    // ~/.cache/akaza/logs/ibus-akaza.log に書く。
+    // ~/.cache/akaza/logs/mac-akaza.log に書く。
     // https://superuser.com/questions/1293842/where-should-userspecific-application-log-files-be-stored-in-gnu-linux
     fern::Dispatch::new()
         .format(|out, message, record| {
@@ -35,9 +35,11 @@ fn main() -> anyhow::Result<()> {
         .chain(fern::log_file(logpath)?)
         .apply()?;
 
-    info!("Initializing log");
+    info!("Initializing log 3");
 
     imk::register_controller();
+
+    info!("Controller registered");
 
     unsafe {
         let _pool = NSAutoreleasePool::new(nil);
@@ -48,6 +50,7 @@ fn main() -> anyhow::Result<()> {
         let bundle: id = msg_send![class!(NSBundle), mainBundle];
         let identifer: id = msg_send![bundle, bundleIdentifier];
 
+        info!("Start describing");
         imk::describe(identifer);
         imk::describe(nib_name);
         imk::describe(k_connection_name);
