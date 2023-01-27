@@ -1,0 +1,17 @@
+[package]
+name = "mac-akaza"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+objc = "0.2.7"
+cocoa = "0.24.0"
+libc = "0.2"
+fern = "0.6.1"
+anyhow = "1.0.68"
+log = "0.4.17"
+chrono = "0.4.23"
+xdg = "2.4.1"
+
