@@ -3,9 +3,7 @@ use cocoa::appkit::NSKeyDown;
 use cocoa::base::{id, BOOL, NO, nil, YES};
 use cocoa::foundation::NSString;
 use cocoa::foundation::NSNotFound;
-
-use romkan::Romkan;
-
+use cocoa::foundation::NSRange;
 
 use log::info;
 use objc::declare::ClassDecl;
@@ -148,11 +146,12 @@ extern "C" fn handle_event(this: &mut Object, _cmd: Sel, event: id, sender: id) 
                 return NO;
             } else {
                 // 確定処理
-                // info!("clear setMarkedText");
-                // let _: () = msg_send![sender, setMarkedText:nil];
+                info!("clear setMarkedText");
+                let not_found = NSRange { location: NSNotFound as u64, length: NSNotFound as u64 };
+                // let _: () = msg_send![sender, setMarkedText:NSString::alloc(nil).init_str(&(hiragana(&ctx.preedit.clone()))) selectionRange: not_found replacementRange: not_found];
                 // let _: () = msg_send![sender, setMarkedText:NSString::alloc(nil).init_str("")];
                 info!("insertText!!!");
-                let _: () = msg_send![sender, insertText: NSString::alloc(nil).init_str(&hiragana(&ctx.preedit.clone()))];
+                let _: () = msg_send![sender, insertText: NSString::alloc(nil).init_str(&(hiragana(&ctx.preedit.clone()))) replacementRange:not_found];
                 ctx.preedit.clear();
                 return YES;
             }
@@ -174,11 +173,13 @@ extern "C" fn handle_event(this: &mut Object, _cmd: Sel, event: id, sender: id) 
                 {
                     info!("HENKAN!: {}", c);
                     ctx.preedit += str::from_utf8_unchecked(&[c]);
+                    info!("Creating NSRange");
+                    let not_found = NSRange { location: NSNotFound as u64, length: NSNotFound as u64 };
                     info!("trying setMarkedText!: {:?}", ctx.preedit);
 
                     // let not_found: id = msg_send![class!(NSRange), alloc];
                     // let not_found: id = msg_send![not_found, location:NSNotFound length: NSNotFound];
-                    let _: () = msg_send![sender, setMarkedText:NSString::alloc(nil).init_str(&(hiragana(&ctx.preedit.clone())))];
+                    let _: () = msg_send![sender, setMarkedText:NSString::alloc(nil).init_str(&(hiragana(&ctx.preedit.clone()))) selectionRange: not_found replacementRange: not_found];
                     info!("done setMarkedText!: {}", c);
                     // let _: () = msg_send![sender, setMarkedText:NSString::alloc(nil).init_str(&ctx.preedit) selectionRange: not_found replacementRange: not_found];
                     info!("PREEDIT!: {}", ctx.preedit);
