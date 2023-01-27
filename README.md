@@ -22,3 +22,7 @@ Mac 用のかな漢字変換です。
  * [TypoIME](https://github.com/toshi-pono/TypoIME)
  * [GyaIM](https://masui.github.io/GyaimMotion/)
 
+### rust objc の参考資料
+
+ * [teapot](https://github.com/not-fl3/teapot/blob/415c9ce4c1128cda819539c97423906f3ffd2a0e/glutin/src/api/ios/delegate.rs)
+
