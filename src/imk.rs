@@ -96,7 +96,7 @@ extern "C" fn input_text(_this: &Object, _cmd: Sel, text: id, sender: id) -> BOO
 */
 
 fn hiragana(s: &str) -> String{
-    s.replace("a", "あ").replace("ka", "か").to_string()
+    s.replace("ka", "か").replace("a", "あ").to_string()
 }
 
 // GyalM は handle_event を利用している。
