@@ -2,7 +2,7 @@ use cocoa::appkit::{NSApp, NSApplication};
 use cocoa::base::{id, nil, BOOL};
 use cocoa::foundation::{NSAutoreleasePool, NSString};
 
-use fern;
+
 use log::info;
 use log::LevelFilter;
 

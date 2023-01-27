@@ -1,12 +1,12 @@
 use cocoa::appkit::NSEventType;
 use cocoa::appkit::NSKeyDown;
-use cocoa::base::{id, nil, BOOL, NO, YES};
-use cocoa::foundation::NSString;
+use cocoa::base::{id, BOOL, NO};
+
 use log::info;
 use objc::declare::ClassDecl;
 use objc::runtime::{Object, Sel};
 // use objc::rc::StrongPtr;
-use std::mem;
+
 
 use std::collections::HashMap;
 use std::{slice, str};
@@ -115,7 +115,7 @@ extern "C" fn handle_event(this: &mut Object, _cmd: Sel, event: id, _sender: id)
         // get ctx
         info!("CTX!");
         let ctx: *mut libc::c_void = *this.get_ivar("ctx");
-        let mut ctx = if ctx.is_null() {
+        let ctx = if ctx.is_null() {
             info!("Got null pointer!");
             let ctx = Box::new(InputContext {
                 preedit: String::new(),
@@ -131,10 +131,9 @@ extern "C" fn handle_event(this: &mut Object, _cmd: Sel, event: id, _sender: id)
 
         if let Some(s) = to_s(eventString) {
             let chars = s.as_bytes();
-            if chars.len() > 0 {
+            if !chars.is_empty() {
                 let c = chars[0];
-                if c >= 0x21
-                    && c <= 0x7e
+                if (0x21..=0x7e).contains(&c)
                     && (modifierFlags
                         & (NSEventModifierFlagControl
                             | NSEventModifierFlagCommand
@@ -154,7 +153,7 @@ extern "C" fn handle_event(this: &mut Object, _cmd: Sel, event: id, _sender: id)
         info!("Got handle_event: key_code={}", key_code);
         */
     }
-    return NO;
+    NO
 }
 
 fn convert(text: &str) -> Option<String> {
@@ -164,9 +163,9 @@ fn convert(text: &str) -> Option<String> {
 
     if let Some(list) = outs.get(text) {
         let i: usize = 0_usize;
-        return Some(list[i as usize].to_string());
+        return Some(list[i].to_string());
     }
-    return None;
+    None
 }
 
 /// Get and print an objects description
