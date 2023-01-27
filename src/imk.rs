@@ -5,7 +5,8 @@ use objc::runtime::{Object, Sel};
 use log::info;
 use cocoa::appkit::NSKeyDown;
 use cocoa::appkit::NSEventType;
-use cocoa::appkit::NSEventModifierFlags;
+// use objc::rc::StrongPtr;
+use std::mem;
 
 use std::collections::HashMap;
 use std::{slice, str};
@@ -46,12 +47,32 @@ pub fn register_controller() {
     );
     */
     // https://github.com/phracker/MacOSX-SDKs/blob/master/MacOSX10.5.sdk/System/Library/Frameworks/InputMethodKit.framework/Versions/A/Headers/IMKInputController.h#L73
+    /*
+     * うまくしょきかできない
+    decl.add_method(
+        sel!(initWithServer:delegate:client:),
+        init_with_server as extern "C" fn(&Object, Sel, id, id, id) -> id,
+        );
+        */
     decl.add_method(
       sel!(handleEvent:client:),
-      handle_event as extern "C" fn(&Object, Sel, id, id) -> BOOL,
+      handle_event as extern "C" fn(&mut Object, Sel, id, id) -> BOOL,
     );
+    decl.add_ivar::<*mut libc::c_void>("ctx");
   }
   decl.register();
+}
+
+/*
+extern "C" fn init_with_server(_this: &Object, _cmd: Sel, _server: id, _delegate: id, _client: id) -> id {
+    info!("init_with_server");
+    unsafe {
+        let obj :*mut Object = msg_send![class!(IMKInputController), alloc];
+    info!("init_with_server!!! 3");
+        let obj :*mut Object = msg_send![obj, init];
+    info!("init_with_server!!! 4");
+    StrongPtr::new(obj)
+    }
 }
 
 extern "C" fn input_text(_this: &Object, _cmd: Sel, text: id, sender: id) -> BOOL {
@@ -67,9 +88,10 @@ extern "C" fn input_text(_this: &Object, _cmd: Sel, text: id, sender: id) -> BOO
   }
   return NO;
 }
+*/
 
 // GyalM は handle_event を利用している。
-extern "C" fn handle_event(_this: &Object, _cmd: Sel, event: id, _sender: id) -> BOOL {
+extern "C" fn handle_event(this: &mut Object, _cmd: Sel, event: id, _sender: id) -> BOOL {
     // https://developer.apple.com/documentation/appkit/nsevent?language=objc
   info!("Got handle_event");
 
@@ -88,8 +110,22 @@ extern "C" fn handle_event(_this: &Object, _cmd: Sel, event: id, _sender: id) ->
   }
 
   let eventString = msg_send![event, characters];
-  let keyCode: u16 = msg_send![event, keyCode];
+  let _keyCode: u16 = msg_send![event, keyCode];
   let modifierFlags:u64 = msg_send![event, modifierFlags];
+
+  info!("CTX!");
+  let ctx: *mut libc::c_void = *this.get_ivar("ctx");
+  let mut ctx = if ctx.is_null() {
+      info!("Got null pointer!");
+    let ctx = Box::new(InputContext { preedit: String::new() });
+        let ctx_ptr: *mut InputContext = Box::leak(ctx);
+        this.set_ivar("ctx", ctx_ptr as *mut libc::c_void);
+        let ctx: *mut libc::c_void = *this.get_ivar("ctx");
+      &mut *(ctx as *mut InputContext)
+  } else {
+      info!("Got real pointer");
+      &mut *(ctx as *mut InputContext)
+  };
 
   if let Some(s) =to_s( eventString) {
     let chars = s.as_bytes();
@@ -97,6 +133,8 @@ extern "C" fn handle_event(_this: &Object, _cmd: Sel, event: id, _sender: id) ->
         let c = chars[0];
         if c >= 0x21 && c <= 0x7e && (modifierFlags & (NSEventModifierFlagControl|NSEventModifierFlagCommand|NSEventModifierFlagOption)) == 0 {
             info!("HENKAN!: {}", c);
+            ctx.preedit += str::from_utf8_unchecked(&[c]);
+            info!("PREEDIT!: {}", ctx.preedit);
         }
     }
   }
