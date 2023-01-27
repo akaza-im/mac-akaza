@@ -113,6 +113,7 @@ extern "C" fn handle_event(this: &mut Object, _cmd: Sel, event: id, _sender: id)
   let _keyCode: u16 = msg_send![event, keyCode];
   let modifierFlags:u64 = msg_send![event, modifierFlags];
 
+  // get ctx
   info!("CTX!");
   let ctx: *mut libc::c_void = *this.get_ivar("ctx");
   let mut ctx = if ctx.is_null() {
