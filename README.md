@@ -13,6 +13,10 @@ Mac 用のかな漢字変換です。
 
     cp -r out/Akaza.app ~/Library/'Input Methods'
 
+## Glossary
+
+ * preedit のことを InputMethodKit では MarkedText とよんでいる
+
 ## See also
 
  * [TypoIME](https://github.com/toshi-pono/TypoIME)

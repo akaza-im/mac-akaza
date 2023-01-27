@@ -3,9 +3,24 @@ use cocoa::foundation::NSString;
 use objc::declare::ClassDecl;
 use objc::runtime::{Object, Sel};
 use log::info;
+use cocoa::appkit::NSKeyDown;
+use cocoa::appkit::NSEventType;
+use cocoa::appkit::NSEventModifierFlags;
 
 use std::collections::HashMap;
 use std::{slice, str};
+
+struct InputContext {
+    preedit: String,
+}
+
+const NSEventModifierFlagControl: u64 = 1<<18;
+const NSEventModifierFlagOption: u64 = 1<<19;
+const NSEventModifierFlagCommand : u64 = 1<<20;
+
+// https://stackoverflow.com/questions/3202629/where-can-i-find-a-list-of-mac-virtual-key-codes
+
+const KEY_DELETE: u16 = 51;
 
 #[link(name = "InputMethodKit", kind = "framework")]
 extern "C" {}
@@ -57,14 +72,36 @@ extern "C" fn input_text(_this: &Object, _cmd: Sel, text: id, sender: id) -> BOO
 extern "C" fn handle_event(_this: &Object, _cmd: Sel, event: id, _sender: id) -> BOOL {
     // https://developer.apple.com/documentation/appkit/nsevent?language=objc
   info!("Got handle_event");
+
+
   unsafe {
+    describe(event);
+
       // [2023-01-27][21:44:41][mac_akaza::imk][INFO] Object description: NSEvent: type=KeyDown
       // loc=(0,0) time=16312.6 flags=0 win=0x0 winNum=0 ctxt=0x0 chars="o" unmodchars="o" repeat=0
       // keyCode=31
-  // u64 固定でいいのかは謎
-  let type_: u64 = msg_send![event, type];
-  info!("Got handle_event: type={}", type_);
-  describe(event);
+  let type_: NSEventType = msg_send![event, type];
+  info!("Got handle_event: type={}", type_ as u64);
+
+  if type_ != NSKeyDown {
+      return NO;
+  }
+
+  let eventString = msg_send![event, characters];
+  let keyCode: u16 = msg_send![event, keyCode];
+  let modifierFlags:u64 = msg_send![event, modifierFlags];
+
+  if let Some(s) =to_s( eventString) {
+    let chars = s.as_bytes();
+    if chars.len() > 0 {
+        let c = chars[0];
+        if c >= 0x21 && c <= 0x7e && (modifierFlags & (NSEventModifierFlagControl|NSEventModifierFlagCommand|NSEventModifierFlagOption)) == 0 {
+            info!("HENKAN!: {}", c);
+        }
+    }
+  }
+
+  // flags に modifier 情報が入っている
   /*
   let key_code: u16 = msg_send![event, keyCode];
   info!("Got handle_event: key_code={}", key_code);
