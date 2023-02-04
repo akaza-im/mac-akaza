@@ -4,14 +4,14 @@ Mac 用のかな漢字変換です。
 
 ## 動作環境
 
- * macOS Monterey(12.6)
+ * macOS Monterey(12.6) 以上
  * 64bit 環境のみサポート
 
 ## インストール方法
 
 (TODO: binary もリリースしたい)
 
-    cp -r out/Akaza.app ~/Library/'Input Methods'
+    make install
 
 ## Glossary
 
