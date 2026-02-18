@@ -1,7 +1,7 @@
 OUTDIR = out/
 APP = $(OUTDIR)/Akaza.app
 INSTALL_DIR = $(HOME)/Library/Input Methods
-MODEL_VERSION = v2026.0212.1
+MODEL_VERSION = v2026.218.0
 MODEL_DIR = $(OUTDIR)/model
 MODEL_TARBALL = $(MODEL_DIR)/akaza-default-model.tar.gz
 
@@ -18,7 +18,7 @@ download-model:
 		echo "Downloading akaza-default-model $(MODEL_VERSION)..."; \
 		mkdir -p $(MODEL_DIR); \
 		gh release download $(MODEL_VERSION) \
-			--repo akaza-im/akaza-default-model \
+			--repo akaza-im/akaza \
 			--pattern "akaza-default-model.tar.gz" \
 			--dir $(MODEL_DIR) --clobber; \
 		tar xzf $(MODEL_TARBALL) -C $(MODEL_DIR); \
