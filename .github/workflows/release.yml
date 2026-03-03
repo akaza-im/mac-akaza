@@ -70,7 +70,11 @@ jobs:
         run: xcrun stapler staple out/Akaza.app
 
       - name: Create release zip
-        run: ditto -c -k --keepParent out/Akaza.app Akaza.zip
+        run: |
+          mkdir -p Akaza-release
+          cp -a out/Akaza.app Akaza-release/
+          cp LICENSE README.md Akaza-release/
+          ditto -c -k --keepParent Akaza-release Akaza.zip
 
       - name: Upload to GitHub Release
         env:
