@@ -79,6 +79,10 @@ class AkazaInputController: IMKInputController {
             return handleBackspaceEvent(event: event, client: client)
         }
 
+        // Let macOS handle dedicated JIS input-mode keys (Kana/Eisu).
+        // This prevents accidental text insertion (e.g. space) while preserving mode switching.
+        if isJISInputModeSwitchKey(keyCode) { return false }
+
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         if let functionKeyCode = resolveFunctionKeyCode(keyCode: keyCode, flags: flags), hasPreedit {
             return handleFunctionKeyFromAnyState(keyCode: functionKeyCode, client: client)
@@ -279,6 +283,12 @@ extension AkazaInputController {
             }
         }
         return nil
+    }
+
+    private func isJISInputModeSwitchKey(_ keyCode: UInt16) -> Bool {
+        // Carbon virtual key codes:
+        // kVK_JIS_Eisu = 0x66, kVK_JIS_Kana = 0x68
+        keyCode == 0x66 || keyCode == 0x68
     }
 
     private func handleNonFunctionKey(
