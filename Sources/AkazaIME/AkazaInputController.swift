@@ -75,6 +75,8 @@ class AkazaInputController: IMKInputController {
         let keyCode = event.keyCode
         NSLog("AkazaIME: keyCode=\(keyCode) characters=\(event.characters ?? "")")
 
+        if isJISKanaKey(keyCode) { return true }
+
         if isBackspaceEvent(event, keyCode: keyCode) {
             return handleBackspaceEvent(event: event, client: client)
         }
@@ -279,6 +281,10 @@ extension AkazaInputController {
             }
         }
         return nil
+    }
+
+    private func isJISKanaKey(_ keyCode: UInt16) -> Bool {
+        keyCode == 0x68 // kVK_JIS_Kana
     }
 
     private func handleNonFunctionKey(
