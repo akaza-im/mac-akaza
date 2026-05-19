@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::ops::Range;
+use std::time::{Duration, Instant};
 
 use libakaza::dict::skk::write::write_skk_dict;
 use libakaza::engine::base::HenkanEngine;
@@ -14,12 +15,19 @@ use serde_json::Value;
 
 use crate::jsonrpc::*;
 
+// macOS enforces a disk-write rate limit (~24.86 KB/s over 86400s). Writing on every
+// learn call (each keypress confirmation) caused akaza-server to be killed after ~20h of use.
+// Flush at most once per 5 minutes; always flush on shutdown.
+const FLUSH_INTERVAL: Duration = Duration::from_secs(300);
+
 pub struct Handler<U: SystemUnigramLM, B: SystemBigramLM, KD: KanaKanjiDict> {
     engine: BigramWordViterbiEngine<U, B, KD>,
     dict_path: String,
     model_dir: String,
     unigram_lm: MarisaSystemUnigramLM,
     bigram_lm: MarisaSystemBigramLM,
+    learn_dirty: bool,
+    last_flush: Option<Instant>,
 }
 
 impl<U: SystemUnigramLM, B: SystemBigramLM, KD: KanaKanjiDict> Handler<U, B, KD> {
@@ -36,6 +44,27 @@ impl<U: SystemUnigramLM, B: SystemBigramLM, KD: KanaKanjiDict> Handler<U, B, KD>
             model_dir,
             unigram_lm,
             bigram_lm,
+            learn_dirty: false,
+            last_flush: None,
+        }
+    }
+
+    pub fn flush_learn(&mut self) {
+        if !self.learn_dirty {
+            return;
+        }
+        match self.engine.user_data.lock() {
+            Ok(mut user_data) => {
+                if let Err(e) = user_data.write_user_files() {
+                    error!("flush_learn: failed to save user data: {}", e);
+                } else {
+                    self.learn_dirty = false;
+                    self.last_flush = Some(Instant::now());
+                }
+            }
+            Err(e) => {
+                error!("flush_learn: failed to lock user_data: {}", e);
+            }
         }
     }
 
@@ -186,26 +215,13 @@ impl<U: SystemUnigramLM, B: SystemBigramLM, KD: KanaKanjiDict> Handler<U, B, KD>
         self.engine.learn(&candidates);
         info!("Learned {} candidates", candidates.len());
 
-        // Persist learned data to disk
-        match self.engine.user_data.lock() {
-            Ok(mut user_data) => {
-                if let Err(e) = user_data.write_user_files() {
-                    error!("learn: failed to save user data: {}", e);
-                    return Response::error(
-                        request.id.clone(),
-                        INTERNAL_ERROR,
-                        format!("Failed to save learned data: {}", e),
-                    );
-                }
-            }
-            Err(e) => {
-                error!("learn: failed to lock user_data: {}", e);
-                return Response::error(
-                    request.id.clone(),
-                    INTERNAL_ERROR,
-                    "Failed to access user data".to_string(),
-                );
-            }
+        self.learn_dirty = true;
+        let should_flush = self
+            .last_flush
+            .map(|t| t.elapsed() >= FLUSH_INTERVAL)
+            .unwrap_or(true);
+        if should_flush {
+            self.flush_learn();
         }
 
         Response::success(request.id.clone(), Value::Bool(true))

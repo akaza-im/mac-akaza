@@ -130,6 +130,7 @@ fn main() -> Result<()> {
         stdout.flush()?;
     }
 
+    handler.flush_learn();
     info!("akaza-server shutting down");
     Ok(())
 }

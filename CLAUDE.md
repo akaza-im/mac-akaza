@@ -39,6 +39,61 @@ Resources/         # アイコン等のリソース
 - akaza-server との通信は非同期で行い、UI スレッドをブロックしないこと
 - akaza-server のクラッシュに備え、変換リクエストのタイムアウトを設定すること
 
+### 既知の問題: macOS ディスク書き込み制限による強制終了
+
+macOS は 1 プロセスのディスク書き込み量を 86400 秒あたり約 2147 MB（約 24.86 KB/s）に制限しており、超過すると OS がプロセスを強制終了する。
+
+**原因**: `learn` リクエスト（変換確定のたびに発火）で `write_user_files()` を毎回呼ぶと、unigram/bigram/skip-bigram の 3 ファイル（合計 ~1.5 MB）を毎回 AES 暗号化してフルで書き直すため、長時間使用で制限を超える。
+
+**対処**: `akaza-server/src/handler.rs` の `handle_learn` は 5 分に 1 回だけ書き込み、シャットダウン時に必ず flush する実装になっている（`FLUSH_INTERVAL = 300s`）。60 秒では 24 時間フル稼働時に制限ギリギリになるため 5 分を選択。
+
+## ログ・クラッシュ調査手順
+
+### 1. クラッシュレポートを確認する
+
+```sh
+# ユーザークラッシュレポート
+ls ~/Library/Logs/DiagnosticReports/ | grep -iE "akaza|Akaza"
+
+# システムクラッシュレポート（強制終了・リソース超過含む）
+ls /Library/Logs/DiagnosticReports/ | grep -iE "akaza|Akaza"
+```
+
+ファイル拡張子の見方:
+- `.ips` — クラッシュ（Segfault 等）
+- `.diag` — リソース超過による強制終了（disk writes, CPU, memory）
+
+`.diag` の `Event:` 行で何が原因かわかる（例: `disk writes`）。
+
+### 2. プロセス稼働状況を確認する
+
+```sh
+ps aux | grep -i akaza | grep -v grep
+```
+
+### 3. AkazaIME の NSLog を確認する
+
+```sh
+# 直近 1 時間
+log show --last 1h --predicate 'process CONTAINS "Akaza"' --style compact
+
+# リアルタイム監視
+log stream --predicate 'process CONTAINS "Akaza"' --style compact
+```
+
+akaza-server は stderr にログを出力している（`env_logger`）。
+Swift 側の NSLog は unified logging に流れる。
+
+### 4. akaza-server の stderr をリアルタイムで見る
+
+akaza-server 単体を起動して直接 stderr を確認する。
+
+```sh
+MODEL="$HOME/Library/Input Methods/Akaza.app/Contents/Resources/model"
+SERVER="$HOME/Library/Input Methods/Akaza.app/Contents/MacOS/akaza-server"
+"$SERVER" "$MODEL" 2>&1 >/dev/null
+```
+
 ## バージョンアップ手順
 
 akaza ライブラリとモデルを新しいバージョン（例: `vYYYY.MMD.0`）に更新する場合、以下の 2 ファイルを修正する。
