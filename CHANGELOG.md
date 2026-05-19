@@ -1,5 +1,10 @@
 # Changelog
 
+## [v2026.519.0](https://github.com/akaza-im/mac-akaza/compare/v2026.408.0...v2026.519.0) - 2026-05-19
+- fix: throttle learn disk writes to avoid macOS resource limit by @tokuhirom in https://github.com/akaza-im/mac-akaza/pull/90
+- かなキー押下時にスペースがコミットされてしまう事象の修正 by @piarra in https://github.com/akaza-im/mac-akaza/pull/89
+- update akaza to v2026.404.0 by @tokuhirom in https://github.com/akaza-im/mac-akaza/pull/86
+
 ## [v2026.407.0](https://github.com/akaza-im/mac-akaza/compare/v2026.331.0...v2026.407.0) - 2026-04-07
 - fix: ユーザー辞書追加ダイアログで Tab キーによるフィールド移動を有効化 by @tokuhirom in https://github.com/akaza-im/mac-akaza/pull/84
 
