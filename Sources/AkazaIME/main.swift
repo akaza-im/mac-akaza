@@ -26,7 +26,7 @@ private func getConnectionName() -> String {
     if let name = Bundle.main.object(forInfoDictionaryKey: "InputMethodConnectionName") as? String {
         return name
     }
-    return "AkazaIME_1_Connection"
+    return (Bundle.main.bundleIdentifier ?? "com.github.tokuhirom.inputmethod.Japanese.Akaza") + "_Connection"
 }
 
 setupLogging()
@@ -60,4 +60,16 @@ if let skkJisyoLConfig = predefinedDownloadableDicts.first(where: { $0.id == "sk
 }
 
 NSLog("AkazaIME: IMKServer created successfully")
+
+// スリープ復帰後にサーバーを再起動してパイプ接続を回復する
+// macOS はスリープ中にパイプ接続を破棄することがあるため、ウェイク時に再起動が必要
+NSWorkspace.shared.notificationCenter.addObserver(
+    forName: NSWorkspace.didWakeNotification,
+    object: nil,
+    queue: .main
+) { _ in
+    NSLog("AkazaIME: wake from sleep — restarting akaza-server")
+    akazaServerProcess.restart()
+}
+
 NSApplication.shared.run()
