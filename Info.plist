@@ -23,7 +23,7 @@
     <true/>
 
     <key>InputMethodConnectionName</key>
-    <string>AkazaIME_1_Connection</string>
+    <string>com.github.tokuhirom.inputmethod.Japanese.Akaza_Connection</string>
     <key>InputMethodServerControllerClass</key>
     <string>AkazaInputController</string>
 
