@@ -538,8 +538,8 @@ checksum = "09edd9e8b54e49e587e4f6295a7d29c3ea94d469cb40ab8ca70b288248a81db2"
 
 [[package]]
 name = "libakaza"
-version = "2026.404.0"
-source = "git+https://github.com/akaza-im/akaza.git?tag=v2026.404.0#842ea53164eef6fe647e3aa4844c3de58b60a295"
+version = "2026.530.0"
+source = "git+https://github.com/akaza-im/akaza.git?tag=v2026.530.0#2092e36cdb1d90643f2d1eaecbbf3908f22ed94b"
 dependencies = [
  "aes",
  "anyhow",
