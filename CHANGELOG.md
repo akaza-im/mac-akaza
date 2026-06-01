@@ -1,5 +1,10 @@
 # Changelog
 
+## [v2026.601.0](https://github.com/akaza-im/mac-akaza/compare/v2026.519.0...v2026.601.0) - 2026-06-01
+- fix: スリープ復帰後に変換できなくなる問題を修正 by @tokuhirom in https://github.com/akaza-im/mac-akaza/pull/92
+- perf: 変換が200ms超えた場合にログを出力する by @tokuhirom in https://github.com/akaza-im/mac-akaza/pull/94
+- update akaza to v2026.530.0 by @tokuhirom in https://github.com/akaza-im/mac-akaza/pull/95
+
 ## [v2026.519.0](https://github.com/akaza-im/mac-akaza/compare/v2026.408.0...v2026.519.0) - 2026-05-19
 - fix: throttle learn disk writes to avoid macOS resource limit by @tokuhirom in https://github.com/akaza-im/mac-akaza/pull/90
 - かなキー押下時にスペースがコミットされてしまう事象の修正 by @piarra in https://github.com/akaza-im/mac-akaza/pull/89
