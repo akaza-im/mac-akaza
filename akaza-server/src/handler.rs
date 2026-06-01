@@ -142,7 +142,19 @@ impl<U: SystemUnigramLM, B: SystemBigramLM, KD: KanaKanjiDict> Handler<U, B, KD>
             }
         };
 
-        match self.engine.convert(&params.yomi, force_ranges.as_deref()) {
+        let char_count = params.yomi.chars().count();
+        let t0 = Instant::now();
+        let result = self.engine.convert(&params.yomi, force_ranges.as_deref());
+        let elapsed = t0.elapsed();
+        if elapsed.as_millis() > 200 {
+            error!(
+                "convert slow: {}ms, {} chars",
+                elapsed.as_millis(),
+                char_count
+            );
+        }
+
+        match result {
             Ok(clauses) => {
                 let result = Self::clauses_to_json(&clauses);
                 Response::success(request.id.clone(), result)
