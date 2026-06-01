@@ -96,7 +96,31 @@ SERVER="$HOME/Library/Input Methods/Akaza.app/Contents/MacOS/akaza-server"
 
 ## バージョンアップ手順
 
-akaza ライブラリとモデルを新しいバージョン（例: `vYYYY.MMD.0`）に更新する場合、以下の 2 ファイルを修正する。
+akaza ライブラリとモデルを新しいバージョン（例: `vYYYY.MMD.0`）に更新する。
+
+### 重要: libakaza とモデルは同じ akaza リポジトリのタグを共有する
+
+akaza-default-model は **akaza 本体リポジトリ (akaza-im/akaza) にモノレポ化** された。
+モデルデータは `akaza-im/akaza` のリリースに `akaza-default-model.tar.gz` として添付され、
+`Makefile` の `download-model` ターゲットが `gh release download $(MODEL_VERSION) --repo akaza-im/akaza`
+で取得する（旧 `akaza-im/akaza-default-model` リポジトリからは取得しない）。
+
+したがって `libakaza` のタグと `MODEL_VERSION` は **常に同じ akaza のタグ** を指す。
+
+### 手順
+
+0. 更新前に main を最新化し、作業ブランチを切る
+   ```sh
+   git checkout main && git pull --ff-only origin main
+   git checkout -b update/akaza-vYYYY.MMD.0
+   ```
+
+   利用可能なタグとモデルアセットの存在を確認する。
+   ```sh
+   gh release list --repo akaza-im/akaza --limit 10
+   gh release view vYYYY.MMD.0 --repo akaza-im/akaza --json assets -q '.assets[].name'
+   # → akaza-default-model.tar.gz が含まれていることを確認
+   ```
 
 1. `akaza-server/Cargo.toml` の `libakaza` タグを更新
    ```toml
@@ -111,6 +135,11 @@ akaza ライブラリとモデルを新しいバージョン（例: `vYYYY.MMD.0
 3. `Cargo.lock` を更新
    ```sh
    cargo update -p libakaza
+   ```
+
+4. ビルドが通ることを確認する
+   ```sh
+   cargo build --release
    ```
 
 ## 誤変換の調査手順

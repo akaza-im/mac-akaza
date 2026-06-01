@@ -88,6 +88,7 @@ fn main() -> Result<()> {
         dicts,
         dict_cache: true,
         reranking_weights: ReRankingWeights::default(),
+        convert_k: 10,
     };
 
     let engine = BigramWordViterbiEngineBuilder::new(config)

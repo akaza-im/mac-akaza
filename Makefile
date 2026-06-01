@@ -1,7 +1,7 @@
 OUTDIR = out/
 APP = $(OUTDIR)/Akaza.app
 INSTALL_DIR = $(HOME)/Library/Input Methods
-MODEL_VERSION = v2026.404.0
+MODEL_VERSION = v2026.530.0
 MODEL_DIR = $(OUTDIR)/model/$(MODEL_VERSION)
 MODEL_TARBALL = $(MODEL_DIR)/akaza-default-model.tar.gz
 
