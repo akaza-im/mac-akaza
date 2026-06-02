@@ -538,8 +538,8 @@ checksum = "09edd9e8b54e49e587e4f6295a7d29c3ea94d469cb40ab8ca70b288248a81db2"
 
 [[package]]
 name = "libakaza"
-version = "2026.530.0"
-source = "git+https://github.com/akaza-im/akaza.git?tag=v2026.530.0#2092e36cdb1d90643f2d1eaecbbf3908f22ed94b"
+version = "2026.602.0"
+source = "git+https://github.com/akaza-im/akaza.git?tag=v2026.602.0#33e5e422810377190f55551acf2510d8954c29d5"
 dependencies = [
  "aes",
  "anyhow",
@@ -763,9 +763,9 @@ checksum = "dc897dd8d9e8bd1ed8cdad82b5966c3e0ecae09fb1907d58efaa013543185d0a"
 
 [[package]]
 name = "rsmarisa"
-version = "0.4.0"
+version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bbb8faa8d19e79a31e62e7856e16cd5c2d8ba71629910ce3ba1db287f968954d"
+checksum = "a7490d7079b13206bb94e7973473580585d466038ed3b1b8ccd06f88eb5bba69"
 dependencies = [
  "clap",
  "memmap2",
