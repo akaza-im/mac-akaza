@@ -7,6 +7,7 @@ class AkazaServerProcess {
 
     private var restartCount = 0
     private var shouldRestart = true
+    private var pendingRestart: DispatchWorkItem?
 
     var onRestart: (() -> Void)?
     private var terminationObserver: NSObjectProtocol?
@@ -78,6 +79,11 @@ class AkazaServerProcess {
     }
 
     func start() {
+        if let existing = process, existing.isRunning {
+            NSLog("AkazaIME: akaza-server already running (pid=\(existing.processIdentifier)), skipping start")
+            return
+        }
+
         let serverPath = Bundle.main.bundlePath + "/Contents/MacOS/akaza-server"
         let modelPath = Bundle.main.bundlePath + "/Contents/Resources/model"
 
@@ -101,21 +107,9 @@ class AkazaServerProcess {
         proc.standardOutput = stdout
 
         proc.terminationHandler = { [weak self] terminatedProcess in
-            guard let self = self else { return }
             let status = terminatedProcess.terminationStatus
             NSLog("AkazaIME: akaza-server terminated with status \(status)")
-
-            guard self.shouldRestart else { return }
-
-            let delay = min(pow(2.0, Double(self.restartCount)), 15.0)
-            self.restartCount += 1
-            NSLog("AkazaIME: restarting akaza-server in \(delay)s (attempt \(self.restartCount))")
-
-            DispatchQueue.global().asyncAfter(deadline: .now() + delay) { [weak self] in
-                guard let self = self, self.shouldRestart else { return }
-                self.start()
-                self.onRestart?()
-            }
+            DispatchQueue.main.async { self?.handleTermination(of: terminatedProcess) }
         }
 
         do {
@@ -140,7 +134,28 @@ class AkazaServerProcess {
         }
     }
 
+    // メインキューで呼ばれること。self.process === terminatedProcess チェックで
+    // restart() が既に新プロセスを起動済みの場合の二重起動を防ぐ。
+    private func handleTermination(of terminatedProcess: Process) {
+        guard process === terminatedProcess, shouldRestart else { return }
+
+        let delay = min(pow(2.0, Double(restartCount)), 15.0)
+        restartCount += 1
+        NSLog("AkazaIME: restarting akaza-server in \(delay)s (attempt \(restartCount))")
+
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self = self else { return }
+            self.pendingRestart = nil
+            self.start()
+            self.onRestart?()
+        }
+        pendingRestart = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: workItem)
+    }
+
     func restart() {
+        pendingRestart?.cancel()
+        pendingRestart = nil
         shouldRestart = false
         process?.terminate()
         process?.waitUntilExit()
@@ -154,6 +169,8 @@ class AkazaServerProcess {
     }
 
     func stop() {
+        pendingRestart?.cancel()
+        pendingRestart = nil
         shouldRestart = false
         guard let proc = process, proc.isRunning else { return }
         NSLog("AkazaIME: stopping akaza-server")
