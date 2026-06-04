@@ -67,6 +67,12 @@ class UserDictionaryView: NSView, NSTableViewDataSource, NSTableViewDelegate {
     }
 
     @objc private func addEntry(_ sender: Any?) {
+        UserDictionaryView.showAddEntryDialog(prefillYomi: nil) { [weak self] in
+            self?.loadEntries()
+        }
+    }
+
+    static func showAddEntryDialog(prefillYomi: String?, completion: (() -> Void)? = nil) {
         let alert = NSAlert()
         alert.messageText = "ユーザー辞書に追加"
         alert.addButton(withTitle: "追加")
@@ -79,6 +85,9 @@ class UserDictionaryView: NSView, NSTableViewDataSource, NSTableViewDelegate {
         container.addSubview(yomiLabel)
 
         let yomiField = NSTextField(frame: NSRect(x: 55, y: 34, width: 240, height: 22))
+        if let yomi = prefillYomi {
+            yomiField.stringValue = yomi
+        }
         container.addSubview(yomiField)
 
         let surfaceLabel = NSTextField(labelWithString: "表記:")
@@ -92,7 +101,7 @@ class UserDictionaryView: NSView, NSTableViewDataSource, NSTableViewDelegate {
         surfaceField.nextKeyView = yomiField
 
         alert.accessoryView = container
-        alert.window.initialFirstResponder = yomiField
+        alert.window.initialFirstResponder = prefillYomi != nil ? surfaceField : yomiField
 
         guard alert.runModal() == .alertFirstButtonReturn else { return }
 
@@ -101,7 +110,7 @@ class UserDictionaryView: NSView, NSTableViewDataSource, NSTableViewDelegate {
         guard !yomi.isEmpty, !surface.isEmpty else { return }
 
         _ = akazaClient.userDictAddSync(yomi: yomi, surface: surface)
-        loadEntries()
+        completion?()
     }
 
     @objc private func deleteEntry(_ sender: Any?) {
