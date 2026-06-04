@@ -6,6 +6,8 @@ import InputMethodKit
 signal(SIGPIPE, SIG_IGN)
 
 private func setupApplicationMenu() {
+    let app = NSApplication.shared  // NSApp が nil のまま mainMenu を設定するとクラッシュするため先に初期化する
+
     let mainMenu = NSMenu()
 
     let appMenuItem = NSMenuItem()
@@ -29,7 +31,7 @@ private func setupApplicationMenu() {
     editMenuItem.submenu = editMenu
     mainMenu.addItem(editMenuItem)
 
-    NSApp.mainMenu = mainMenu
+    app.mainMenu = mainMenu
 }
 
 private func setupLogging() {
