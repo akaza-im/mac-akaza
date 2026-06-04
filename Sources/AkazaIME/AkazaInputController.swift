@@ -374,22 +374,9 @@ extension AkazaInputController {
     }
 }
 
-// MARK: - Menu
+// MARK: - Deactivate
 
 extension AkazaInputController {
-    override func menu() -> NSMenu! {
-        let menu = NSMenu()
-        let item = NSMenuItem(title: "設定...", action: #selector(openSettings(_:)), keyEquivalent: "")
-        item.target = self
-        menu.addItem(item)
-        return menu
-    }
-
-    @objc func openSettings(_ sender: Any?) {
-        PreferencesWindowController.shared.showWindow()
-        NSApp.activate(ignoringOtherApps: true)
-    }
-
     override func deactivateServer(_ sender: Any!) {
         cancelPendingSuggest()
         if let client = sender as? (any IMKTextInput), hasPreedit {
