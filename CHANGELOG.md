@@ -1,5 +1,12 @@
 # Changelog
 
+## [v2026.604.0](https://github.com/akaza-im/mac-akaza/compare/v2026.601.0...v2026.604.0) - 2026-06-04
+- update: akaza v2026.602.0 へ更新 by @tokuhirom in https://github.com/akaza-im/mac-akaza/pull/96
+- Potential fix for code scanning alert no. 2: Workflow does not contain permissions by @tokuhirom in https://github.com/akaza-im/mac-akaza/pull/98
+- chore(deps): bump rand from 0.8.5 to 0.8.6 by @dependabot[bot] in https://github.com/akaza-im/mac-akaza/pull/99
+- Potential fix for code scanning alert no. 1: Workflow does not contain permissions by @tokuhirom in https://github.com/akaza-im/mac-akaza/pull/100
+- fix: スリープ復帰時の akaza-server 二重起動を修正 by @tokuhirom in https://github.com/akaza-im/mac-akaza/pull/101
+
 ## [v2026.601.0](https://github.com/akaza-im/mac-akaza/compare/v2026.519.0...v2026.601.0) - 2026-06-01
 - fix: スリープ復帰後に変換できなくなる問題を修正 by @tokuhirom in https://github.com/akaza-im/mac-akaza/pull/92
 - perf: 変換が200ms超えた場合にログを出力する by @tokuhirom in https://github.com/akaza-im/mac-akaza/pull/94
