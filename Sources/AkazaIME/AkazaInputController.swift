@@ -21,8 +21,16 @@ class AkazaInputController: IMKInputController {
     var inputHistory: [ComposingSnapshot] = []
     var functionKeyState: FunctionKeyState?
 
+    // [diag] コントローラ生成/活性化のチャーン追跡用の連番ID。原因特定後に削除する一時計測。
+    private static var diagCounter = 0
+    let diagID: Int = {
+        AkazaInputController.diagCounter += 1
+        return AkazaInputController.diagCounter
+    }()
+
     override init!(server: IMKServer!, delegate: Any!, client inputClient: Any!) {
         super.init(server: server, delegate: delegate, client: inputClient)
+        NSLog("AkazaIME[diag]: controller init id=\(diagID) \(AkazaInputController.diagClientDescription(inputClient))")
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(handleRomkanTableDidChange),
@@ -32,6 +40,7 @@ class AkazaInputController: IMKInputController {
     }
 
     deinit {
+        NSLog("AkazaIME[diag]: controller deinit id=\(diagID)")
         NotificationCenter.default.removeObserver(self, name: .romkanTableDidChange, object: nil)
     }
 
@@ -73,7 +82,8 @@ class AkazaInputController: IMKInputController {
         guard let client = sender as? (any IMKTextInput) else { return false }
 
         let keyCode = event.keyCode
-        NSLog("AkazaIME: keyCode=\(keyCode) characters=\(event.characters ?? "")")
+        // [diag] 往路の生存確認のみ。キー内容はキーロガー化を避けるため記録しない。
+        NSLog("AkazaIME[diag]: handle id=\(diagID) \(AkazaInputController.diagClientDescription(sender))")
 
         if isJISKanaKey(keyCode) { return true }
 
@@ -129,7 +139,7 @@ class AkazaInputController: IMKInputController {
 
         // 直接入力モードではかな変換せずそのままコミット（例: "Java" → "Java"）
         if isDirectInputMode {
-            client.insertText(text, replacementRange: NSRange(location: NSNotFound, length: 0))
+            diagInsertText(text, client: client, "space-direct")
             composedHiragana = ""
             isDirectInputMode = false
             clearInputHistory()
@@ -145,11 +155,12 @@ class AkazaInputController: IMKInputController {
 
         cancelPendingSuggest()
         akazaClient.convertAsync(yomi: text) { [weak self] result in
-            guard let self = self else { return }
+            // [diag] 変換応答が返ったのに反映されず破棄される "サイレントドロップ" を検出する。
+            guard let self = self else { AkazaInputController.diagConvertDroppedNoSelf(); return }
             // 変換待ち中に別のキーが押されて状態が変わった場合は無視
-            guard case .composing = self.inputState else { return }
-            guard self.composedHiragana == text else { return }
-            guard let result = result, !result.isEmpty else { return }
+            guard case .composing = self.inputState else { self.diagConvertDropped("state changed"); return }
+            guard self.composedHiragana == text else { self.diagConvertDropped("composedHiragana changed"); return }
+            guard let result = result, !result.isEmpty else { self.diagConvertDropped("empty/nil result"); return }
 
             let session = ConversionSession(originalHiragana: text, clauses: result)
             self.inputState = .converting(session)
@@ -175,7 +186,7 @@ class AkazaInputController: IMKInputController {
             return true
         }
 
-        client.insertText(text, replacementRange: NSRange(location: NSNotFound, length: 0))
+        diagInsertText(text, client: client, "enter")
         composedHiragana = ""
         isDirectInputMode = false
         rawRomajiInput = ""
@@ -337,7 +348,7 @@ extension AkazaInputController {
             clearInputHistory()
             return
         }
-        client.insertText(text, replacementRange: NSRange(location: NSNotFound, length: 0))
+        diagInsertText(text, client: client, "commit-composing")
         composedHiragana = ""
         isDirectInputMode = false
         rawRomajiInput = ""
@@ -347,7 +358,7 @@ extension AkazaInputController {
     func commitConvertingText(client: any IMKTextInput) {
         guard case .converting(let session) = inputState else { return }
         let text = session.committedText
-        client.insertText(text, replacementRange: NSRange(location: NSNotFound, length: 0))
+        diagInsertText(text, client: client, "commit-converting")
         akazaClient.learnAsync(candidates: session.selectedCandidates)
         resetToComposing()
     }
@@ -378,6 +389,7 @@ extension AkazaInputController {
 
 extension AkazaInputController {
     override func deactivateServer(_ sender: Any!) {
+        NSLog("AkazaIME[diag]: deactivateServer id=\(diagID) \(AkazaInputController.diagClientDescription(sender))")
         cancelPendingSuggest()
         if let client = sender as? (any IMKTextInput), hasPreedit {
             commitCurrentState(client: client)

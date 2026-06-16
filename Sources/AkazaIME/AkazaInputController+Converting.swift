@@ -184,10 +184,11 @@ extension AkazaInputController {
     func updateComposingMarkedText(client: any IMKTextInput) {
         let preedit = functionKeyState?.displayText ?? (composedHiragana + romajiConverter.pendingRomaji)
         if preedit.isEmpty {
-            client.setMarkedText(
+            diagSetMarkedText(
                 NSAttributedString(string: ""),
                 selectionRange: NSRange(location: 0, length: 0),
-                replacementRange: NSRange(location: NSNotFound, length: 0)
+                client: client,
+                "composing-empty"
             )
         } else {
             let attrs: [NSAttributedString.Key: Any] = [
@@ -195,10 +196,11 @@ extension AkazaInputController {
             ]
             let attributed = NSAttributedString(string: preedit, attributes: attrs)
             let length = (preedit as NSString).length
-            client.setMarkedText(
+            diagSetMarkedText(
                 attributed,
                 selectionRange: NSRange(location: length, length: 0),
-                replacementRange: NSRange(location: NSNotFound, length: 0)
+                client: client,
+                "composing"
             )
         }
     }
@@ -224,10 +226,11 @@ extension AkazaInputController {
         }
 
         let fullLength = attributed.length
-        client.setMarkedText(
+        diagSetMarkedText(
             attributed,
             selectionRange: NSRange(location: fullLength, length: 0),
-            replacementRange: NSRange(location: NSNotFound, length: 0)
+            client: client,
+            "converting"
         )
     }
 

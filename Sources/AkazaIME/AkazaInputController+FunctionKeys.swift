@@ -54,7 +54,7 @@ extension AkazaInputController {
 
     func commitFunctionKeyState(client: any IMKTextInput) {
         guard let fkState = functionKeyState else { return }
-        client.insertText(fkState.displayText, replacementRange: NSRange(location: NSNotFound, length: 0))
+        diagInsertText(fkState.displayText, client: client, "func-key")
         resetToComposing()
     }
 
