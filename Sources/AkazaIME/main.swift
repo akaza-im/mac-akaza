@@ -100,6 +100,9 @@ NSWorkspace.shared.notificationCenter.addObserver(
 ) { _ in
     NSLog("AkazaIME: wake from sleep — restarting akaza-server")
     akazaServerProcess.restart()
+    // 経路A 対策: wake 後に OS が Akaza を無効化（メニューバーで disabled）する wedge への対処。
+    // 無効化のタイミングが読めないため複数の遅延で再有効化を試みる。
+    InputSourceEnabler.scheduleReEnable()
 }
 
 NSApplication.shared.run()
