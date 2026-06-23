@@ -120,6 +120,27 @@ macOS をスリープ→復帰すると、しばらくして（あるいは即�
 4. **経路A の堅牢化を試す** — 復帰時に `IMKServer` を作り直せるか、OS への再登録ができるか調査。
 5. **副次の H4 修正** — SIGTERM での graceful flush（学習データ消失対策、wedge とは独立に有益）。
 
+## 9. 原因確定（2026-06-22）: 往路（OS→IME のキーイベント配送）の断
+
+§8 の計測を入れたビルドで wedge が再発（土日 6/20-21 を挟んだ 6/22 09:15 の wake 後）。`~/Library/Logs/AkazaIME/akaza.log` の `[diag]` ログで**原因が確定した**。
+
+決定的な観測:
+| 事実 | 値 |
+|---|---|
+| 最後に `handle`（往路）が呼ばれた時刻 | **2026-06-19 19:18:26**（wake 前・金曜夜） |
+| 6/22 09:15:36 の wake 後の `handle` 件数 | **0 件**（約1時間ずっと） |
+| 同 wake 後の `activateServer`/`deactivateServer` | **43 件**（アプリ切替のたびに正常に到着） |
+| 全 client の応答性 | 一律 `insert=true mark=true`（client オブジェクトは生存） |
+
+結論:
+- **OS は AkazaIME を「アクティブな IME」として扱い続けている**（activate/deactivate は飛ぶ）。
+- **client オブジェクトは生きていて `insertText`/`setMarkedText` に応答できる**（＝復路は無傷）。
+- **だが keyDown が一切 `handle()` に配送されない**＝**OS のキーイベント配送経路（往路）だけが断たれている**。
+
+これは「復路の断」でも「in-process のドロップ」でもなく、**純粋に往路の断**。`killall` で回復しない事実（壊れているのは OS の HIToolbox/TSM のキールーティングで、Swift 再起動では OS がイベントを渡さない）とも、長時間スリープ（土日）で出やすい観察とも整合する。§6 の H1 が「往路の断・復路は生存」という具体形で確定。
+
+→ 次の課題は「**どの操作で往路が復活するか**」の切り分け（§7-1）。復活操作が分かれば、wake 通知時にそれをプログラムで自動実行する対策に直結する。有力候補は `TISSelectInputSource` による入力ソースの一時トグル（別ソースへ切替→Akaza へ戻す）で OS のキールーティングを張り直す案。
+
 ## 8. 投入した計測（2026-06-15）と次回 wedge 時の読み方
 
 `killall` で直らない＝原因は OS 側（経路A）に絞られたが、現状のログでは「往路（OS→IME のキーイベント配送）」と「復路（IME→アプリへの `insertText`/`setMarkedText`）」のどちらが断たれているか確定できない。これを次回発生時に一発で切り分けるため、経路A に計測ログを仕込んだ（ブランチ `debug/path-a-wake-logging`）。
@@ -149,8 +170,50 @@ macOS をスリープ→復帰すると、しばらくして（あるいは即�
 
 > この計測は原因特定後に削除する一時コード（全行 `[diag]`）。
 
+## 10. ライブ検証（2026-06-23）: 回復操作の切り分けと診断ツールの訂正
+
+6/23 に wedge が再発し、**発生中のライブ状態**で §7-1 の回復操作切り分けを実施した。重要な発見が3つ。
+
+### 10-1. 往路の断はプロセス全体で起きている（特定コントローラの問題ではない）
+wedge 中に打鍵すると、**新規に生成された `controller init` のコントローラでも `handle` が 0 件**だった（`activateServer` は来るが keyDown が来ない）。§9 の「往路の断」が、古いコントローラ固有ではなく **AkazaIME プロセス全体（OS↔IME 接続全体）** で起きていることが確定。
+
+### 10-2. 診断ツールの訂正 — TIS API と `defaults read` は wedge の真の状態を反映しない
+wedge 中・回復後の両方で、以下が**同じ表示**だった:
+- `/tmp/akaza_tis_dump`（`TISCreateInputSourceList` + `kTISPropertyInputSourceIsEnabled`）→ 常に `Akaza.Japanese: enabled=true`
+- `defaults read com.apple.HIToolbox AppleEnabledInputSources` → 常に Akaza が出てこない
+
+つまり**この2つは状態判定に使えない**。当初「AppleEnabledInputSources から Akaza が消えた＝disabled が原因」と考えたが、これは**誤り**（壊れていても回復していても表示が変わらない）。
+さらに、wedge 中に `TISEnableInputSource` / `TISDisableInputSource` / `TISSelectInputSource` トグル / **システム設定の「＋」での再追加**を試したが、いずれも状態を変えられなかった。
+→ **信用できる唯一の状態信号は `~/Library/Logs/AkazaIME/akaza.log` の `handle` 到着有無**（来ていれば往路は生存）。
+→ この結果、TIS API での自動再有効化を狙った **PR #109 は無効と判明しクローズ**した。
+
+### 10-3. 【最重要】`make install`（バンドル置換）で reboot 無しに回復した
+wedge 中に次を実行したところ**復活した**（akaza.log で `handle` 再開・7000件超を確認）:
+```sh
+make install && killall AkazaIME && pkill -9 -f akaza-server
+```
+このとき **wake は起きておらず、wake 時 IMKServer 再生成の実験（§10-4）は未発火**。効いたのは `make install` の中身——
+```
+rm -rf ~/Library/Input Methods/Akaza.app   # 旧バンドル削除
+cp -a out/Akaza.app ~/Library/Input Methods/  # 新バンドル設置
+```
+**バンドルがディスク上で置き換わると macOS が入力メソッドを再登録し、OS 側に溜まった壊れた接続/登録がクリアされた**、というのが最有力の説明。「`killall` 単独では治らない（＝同じバンドルに再接続するだけ）」事実とも整合する。
+⇒ **再登録が回復の鍵**であり、(a) reboot より軽い回復手段、(b) wake 時の予防（バンドル touch / 再登録 / `TISRegisterInputSource`）の有力候補。
+
+**未確定（次回の切り分け課題）**: 「バンドル置換そのもの」が効いたのか「単なる完全プロセス再起動」で十分なのか。次回 wedge 時は **まず `killall AkazaIME` だけ → ダメなら `make install`** の順で試し、どちらで治るかを記録する。
+
+### 10-4. 投入した予防実験（commit 7eef1b4, debug/path-a-wake-logging）
+wake 通知時に `akaza-server` 再起動に加えて **`IMKServer` 自体を作り直す**コードを `Sources/AkazaIME/main.swift` に追加（解放→runloop 1サイクル→同名で再 init、最大5回リトライ）。OS↔AkazaIME 接続が腐る前に張り直す狙い。**効果は未検証**（投入後まだ wake が起きていない）。次回以降の wake で `[diag] IMKServer recreated on wake` の有無と wedge 再発有無を観測する。最悪 IMKServer 再生成に失敗しても killall / 自動再起動で回復するため、reboot を要する現状より悪化はしない。
+
+### 10-5. 補足: 今回の wedge 直前にスリープは無かった
+pmset ログ上、wedge が顕在化した時刻の直前にスリープ/ロックは無く（Caffeine 稼働中）、当日朝の wake 由来の潜在破損が後から顕在化した可能性がある。⇒ **wake トリガだけの対策では取りこぼす恐れ**。署名/notarization 仮説は最有力だが未確定のまま（GUI 再追加時の trustd 署名検証バーストは状況証拠どまり）。
+
 ## 付録: 即時回復手段（ユーザー向け）
 
-壊れた状態からの回復は、既知の IMKit バグ上は**ソフトウェア的手段が乏しい**。
-- **`killall AkazaIME` は回復手段にならない（確認済み, 2026-06-15）。** 壊れた状態が OS 側にあるため、Swift プロセスを再起動しても直らない。
-- 試す価値があるのは（どれで直るかは未確認 = §7 の切り分け対象）: 入力ソースの再選択／システム設定で Akaza を削除→再追加／再ログイン／リブート。
+壊れた状態からの回復は、既知の IMKit バグ上は**ソフトウェア的手段が乏しい**が、2026-06-23 に **reboot 不要の回復**を確認した。
+
+- **【有効・確認済み 2026-06-23】`make install`（バンドル置換）で回復する。** `rm -rf ~/Library/Input Methods/Akaza.app` + 新バンドル設置により macOS が入力メソッドを再登録し、OS 側の壊れた接続/登録がクリアされる。実行例: `make install && killall AkazaIME`。
+- **`killall AkazaIME` 単独は回復手段にならない（確認済み, 2026-06-15）。** 同じバンドルに再接続するだけで OS 側の破損は残る。
+- TIS API（`TISEnableInputSource` 等のトグル）・システム設定での削除/再追加は **wedge 中は効かなかった**（2026-06-23）。
+- 最終手段: 再ログイン／リブート。
+- 状態判定は `defaults read` や TIS dump ではなく、**`~/Library/Logs/AkazaIME/akaza.log` に `handle` が来ているか**で行うこと（§10-2）。
