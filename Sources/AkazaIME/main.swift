@@ -65,11 +65,12 @@ NSLog("AkazaIME: starting")
 let connectionName = getConnectionName()
 NSLog("AkazaIME: connection name = \(connectionName)")
 
-guard let server = IMKServer(name: connectionName, bundleIdentifier: Bundle.main.bundleIdentifier) else {
+// wake 時に作り直せるよう var で保持する（経路A: 接続腐敗の予防実験）
+var imkServer = IMKServer(name: connectionName, bundleIdentifier: Bundle.main.bundleIdentifier)
+guard imkServer != nil else {
     NSLog("AkazaIME: failed to create IMKServer")
     exit(1)
 }
-_ = server // IMKServer を保持
 
 let akazaServerProcess = AkazaServerProcess()
 let akazaClient = JSONRPCClient(serverProcess: akazaServerProcess)
@@ -100,6 +101,33 @@ NSWorkspace.shared.notificationCenter.addObserver(
 ) { _ in
     NSLog("AkazaIME: wake from sleep — restarting akaza-server")
     akazaServerProcess.restart()
+
+    // 経路A 予防実験: wake 後に OS↔AkazaIME の IMKit 接続が腐って keyDown(往路)が
+    // 届かなくなる wedge を、接続が壊れる前に IMKServer を能動的に張り直して防ぐ。
+    // 効果は未検証なので [diag] で観測する。最悪 IMKServer が作れなくても killall /
+    // 自動再起動で回復するため、reboot を要する現状の wedge より悪化はしない。
+    //
+    // 手順を分けるのが重要: まず旧 IMKServer を解放し、runloop を1サイクル回して
+    // Mach ポート名の解放(非同期)を待ってから、同名で作り直す。同期に nil→再 init
+    // すると名前衝突で失敗しやすい。
+    DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+        NSLog("AkazaIME[diag]: wake — releasing IMKServer (name=\(connectionName))")
+        imkServer = nil // 旧接続を畳む（ARC で dealloc → Mach ポート名を解放）
+
+        func recreate(attempt: Int) {
+            imkServer = IMKServer(name: connectionName, bundleIdentifier: Bundle.main.bundleIdentifier)
+            if imkServer != nil {
+                NSLog("AkazaIME[diag]: IMKServer recreated on wake (attempt=\(attempt))")
+            } else if attempt < 5 {
+                NSLog("AkazaIME[diag]: IMKServer recreate failed (attempt=\(attempt)) — retrying")
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1) { recreate(attempt: attempt + 1) }
+            } else {
+                NSLog("AkazaIME[diag]: WARNING IMKServer recreate gave up after \(attempt) attempts — killall to recover")
+            }
+        }
+        // 解放を runloop に消化させてから再生成する
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { recreate(attempt: 1) }
+    }
 }
 
 NSApplication.shared.run()
