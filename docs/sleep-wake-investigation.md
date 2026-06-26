@@ -208,6 +208,28 @@ wake 通知時に `akaza-server` 再起動に加えて **`IMKServer` 自体を�
 ### 10-5. 補足: 今回の wedge 直前にスリープは無かった
 pmset ログ上、wedge が顕在化した時刻の直前にスリープ/ロックは無く（Caffeine 稼働中）、当日朝の wake 由来の潜在破損が後から顕在化した可能性がある。⇒ **wake トリガだけの対策では取りこぼす恐れ**。署名/notarization 仮説は最有力だが未確定のまま（GUI 再追加時の trustd 署名検証バーストは状況証拠どまり）。
 
+### 10-6. 2026-06-26: `IMKServer` wake 時再生成は main thread を詰まらせる疑いが強い
+07:40 の wake 後ログで以下を確認した:
+
+- `AkazaIME: wake from sleep — restarting akaza-server`
+- `AkazaIME[diag]: wake — releasing IMKServer (...)`
+- その後に期待した `IMKServer recreated on wake` / `recreate failed` が出ない
+- 以後、別プロセスとして AkazaIME が起動し直されるまで通常の `handle` ログが出ない
+
+コード上は `imkServer = IMKServer(...)` の直後に成功/失敗ログを出すため、ログが途切れた位置から **`IMKServer` initializer 自体が main thread 上で戻っていない**可能性が高い。したがって wake 時に同一プロセス内で `IMKServer` を破棄/再生成する予防実験は撤去した。経路A の回復は、既に効果を確認した `make install` によるバンドル再登録、またはそれに近い OS 側再登録手段で検証する。
+
+### 10-7. 2026-06-26: `make install` 後に Akaza が入力メニューから消える
+`make install && killall AkazaIME && pkill -9 -f akaza-server` 後に Akaza が選択不能になった。確認結果:
+
+- `~/Library/Input Methods/Akaza.app` は存在し、Info.plist の入力ソース定義も存在する
+- ただし `codesign -dv` の Identifier が `AkazaIME` になっており、`CFBundleIdentifier` の `com.github.tokuhirom.inputmethod.Japanese.Akaza` と不一致
+- `AppleEnabledInputSources` から Akaza が消えていた
+- `TISRegisterInputSource` / `TISEnableInputSource` は `status=0` を返すが、`TISSelectInputSource(Akaza.Japanese)` は `-50` のまま
+- `com.apple.hiservices-xpcservice` の connection invalid が TIS 操作時に継続して出る
+- 一方で AkazaIME プロセス自体には `activateServer` が来ており、プロセス生存と入力メニュー上の可用性が乖離している
+
+`make install` で未署名に近いバンドルを入れると LaunchServices / TIS / 署名 ID の整合が崩れる可能性があるため、`bundle` の最後に `codesign --force --deep --sign - out/Akaza.app` を追加した。以後の検証では、インストール後に `codesign -dv ~/Library/Input\ Methods/Akaza.app` の Identifier が `com.github.tokuhirom.inputmethod.Japanese.Akaza` であることを確認する。
+
 ## 付録: 即時回復手段（ユーザー向け）
 
 壊れた状態からの回復は、既知の IMKit バグ上は**ソフトウェア的手段が乏しい**が、2026-06-23 に **reboot 不要の回復**を確認した。

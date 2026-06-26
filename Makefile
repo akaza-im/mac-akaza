@@ -53,6 +53,7 @@ bundle: download-model
 	cp $(MODEL_DIR)/akaza-default-model/*.model $(APP)/Contents/Resources/model/
 	cp $(MODEL_DIR)/akaza-default-model/*.model.scores $(APP)/Contents/Resources/model/
 	cp $(MODEL_DIR)/akaza-default-model/SKK-JISYO.* $(APP)/Contents/Resources/model/
+	codesign --force --deep --sign - $(APP)
 
 install: build bundle
 	rm -rf "$(INSTALL_DIR)/Akaza.app"
