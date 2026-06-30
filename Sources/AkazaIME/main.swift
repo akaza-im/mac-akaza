@@ -65,11 +65,11 @@ NSLog("AkazaIME: starting")
 let connectionName = getConnectionName()
 NSLog("AkazaIME: connection name = \(connectionName)")
 
-guard let server = IMKServer(name: connectionName, bundleIdentifier: Bundle.main.bundleIdentifier) else {
+let imkServer = IMKServer(name: connectionName, bundleIdentifier: Bundle.main.bundleIdentifier)
+guard imkServer != nil else {
     NSLog("AkazaIME: failed to create IMKServer")
     exit(1)
 }
-_ = server // IMKServer を保持
 
 let akazaServerProcess = AkazaServerProcess()
 let akazaClient = JSONRPCClient(serverProcess: akazaServerProcess)
@@ -100,6 +100,9 @@ NSWorkspace.shared.notificationCenter.addObserver(
 ) { _ in
     NSLog("AkazaIME: wake from sleep — restarting akaza-server")
     akazaServerProcess.restart()
+
+    // IMKServer の wake 時再生成は 2026-06-26 に main thread を詰まらせる疑いが
+    // 強くなったため行わない。経路A の回復はバンドル再登録側で検証する。
 }
 
 NSApplication.shared.run()
