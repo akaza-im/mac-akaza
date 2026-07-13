@@ -18,6 +18,8 @@ extension AkazaInputController {
             return handlePreviousCandidateInConverting(client: client)
         case 123, 124: // Left, Right arrow
             return handleArrowKeyInConverting(keyCode: keyCode, isShiftPressed: isShiftPressed, client: client)
+        case 29: // 0 — open alternative notation dialog
+            return enterAlternativeSelection(client: client)
         case 36: // Enter
             return handleEnterInConverting(client: client)
         case 53: // Escape

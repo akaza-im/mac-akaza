@@ -20,6 +20,7 @@ class AkazaInputController: IMKInputController {
     static let candidateWindow = CandidateWindowController()
     var inputHistory: [ComposingSnapshot] = []
     var functionKeyState: FunctionKeyState?
+    var alternativeSelectionState: AlternativeSelectionState?
 
     // [diag] コントローラ生成/活性化のチャーン追跡用の連番ID。原因特定後に削除する一時計測。
     private static var diagCounter = 0
@@ -65,6 +66,7 @@ class AkazaInputController: IMKInputController {
 
     var hasPreedit: Bool {
         if functionKeyState != nil { return true }
+        if alternativeSelectionState != nil { return true }
         switch inputState {
         case .composing:
             return !composedHiragana.isEmpty || !romajiConverter.pendingRomaji.isEmpty
@@ -308,6 +310,9 @@ extension AkazaInputController {
             if hasPreedit { commitCurrentState(client: client) }
             return false
         }
+        if let result = handleAlternativeSelection(event: event, keyCode: keyCode, client: client) {
+            return result
+        }
         switch inputState {
         case .composing:
             return handleComposingState(event: event, keyCode: keyCode, client: client)
@@ -323,6 +328,10 @@ extension AkazaInputController {
 
 extension AkazaInputController {
     func commitCurrentState(client: any IMKTextInput) {
+        if alternativeSelectionState != nil {
+            commitSelectedAlternative(client: client)
+            return
+        }
         switch inputState {
         case .composing:
             commitComposingText(client: client)
@@ -366,6 +375,7 @@ extension AkazaInputController {
     func resetToComposing() {
         cancelPendingSuggest()
         functionKeyState = nil
+        alternativeSelectionState = nil
         inputState = .composing
         composedHiragana = ""
         isDirectInputMode = false

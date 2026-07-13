@@ -150,6 +150,10 @@ class CandidateWindowController {
         showSurfaces(suggestions, selectedIndex: selectedIndex, cursorRect: cursorRect, stablePosition: true)
     }
 
+    func showAlternatives(_ alternatives: [String], selectedIndex: Int, cursorRect: NSRect) {
+        showSurfaces(alternatives, selectedIndex: selectedIndex, cursorRect: cursorRect, stablePosition: false)
+    }
+
     func hide() {
         panel.orderOut(nil)
     }
