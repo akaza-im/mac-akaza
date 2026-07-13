@@ -2,7 +2,11 @@
 
 > mac-akaza で最も深刻かつ再発を繰り返しているバグ。本ドキュメントに経緯・証拠・仮説・次の一手を集約する。
 >
-> 最終更新: 2026-06-15
+> 最終更新: 2026-07-13
+>
+> **【解決 2026-07-13】根本原因は Secure Event Input の解放漏れと確定した。§11 を参照。**
+> IME 側のバグではなく、他プロセス（今回は ghostty）が Secure Keyboard Entry を
+> 有効化したまま解放しないことで、OS がキーイベントを IME に配送しなくなる仕様動作だった。
 
 ## 1. 症状
 
@@ -230,12 +234,90 @@ pmset ログ上、wedge が顕在化した時刻の直前にスリープ/ロッ�
 
 `make install` で未署名に近いバンドルを入れると LaunchServices / TIS / 署名 ID の整合が崩れる可能性があるため、`bundle` の最後に `codesign --force --deep --sign - out/Akaza.app` を追加した。以後の検証では、インストール後に `codesign -dv ~/Library/Input\ Methods/Akaza.app` の Identifier が `com.github.tokuhirom.inputmethod.Japanese.Akaza` であることを確認する。
 
+## 11. 【原因確定 2026-07-13】Secure Event Input の解放漏れ
+
+wedge がライブ再発し、これまでの全仮説を棄却する切り分けの末、根本原因を特定した。
+
+### 11-1. 今回の切り分けで全て陰性になった
+
+タイムライン: 07:10:30 FullWake → 07:54:37 まで `handle` 正常 → 09:24 以降 `handle` ゼロ（この間スリープ無し）。
+
+| 操作 | 結果 |
+|---|---|
+| `killall AkazaIME`（09:26, 09:27 の 2 回） | ✗ handle ゼロのまま |
+| `make install`（バンドル置換 + 署名確認済み） | ✗ **回復せず** — 6/23 の「バンドル置換で回復」と矛盾 |
+| 新規 controller 生成（ghostty id=2, Slack id=3/4） | ✗ activateServer は来るが handle ゼロ |
+| 入力ソーストグル（ABC→Akaza） | ✗ 回復せず — §9 の「新セッション生成で回復」仮説を反証 |
+| 別アプリ（Slack）で入力 | ✗ アプリ単位ではなくシステム全体の断 |
+
+### 11-2. 真犯人: Secure Event Input
+
+「activateServer は届くのに keyDown だけ全アプリで届かない」を仕様として説明できるのが
+**Secure Event Input**（`EnableSecureEventInput`）。どこかのプロセスが有効化している間、
+macOS はパスワード保護のため**キーイベントを IME に配送しない**（制御メッセージは届き続ける）。
+
+確認方法（wedge 中に実行して確定）:
+
+```sh
+ioreg -l -w 0 | grep -o 'kCGSSessionSecureInputPID"=[0-9]*'
+# → kCGSSessionSecureInputPID"=14255
+ps -p 14255 -o pid,lstart,command
+# → /Applications/Ghostty.app/Contents/MacOS/ghostty
+```
+
+**ghostty が Secure Input を握りっぱなしだった。** ghostty は端末の termios が
+「パスワード入力モード」（ECHO off + ICANON on）になるとメニューの Secure Keyboard Entry
+設定と無関係に自動で Secure Input を有効化する。全 TTY の termios を確認したところ
+パスワードモードのペインは存在せず、**ghostty 内部のカウンタが解放し損ねて張り付いた**状態
+（ghostty 側のバグの可能性が高い）。
+
+### 11-3. これまでの謎が全て説明される
+
+| これまでの観測 | Secure Input 説での説明 |
+|---|---|
+| activateServer は届くのに handle だけ来ない（§9） | Secure Input 中はキーイベントが IME をバイパスする仕様 |
+| プロセス全体・全アプリで断（§10-1） | Secure Input はシステムグローバル |
+| killall / バンドル置換 / TIS トグル / 再追加が全部無効 | IME 側には何の問題もないから |
+| リブート・再ログインで治る | ghostty が終了して Secure Input が解放される |
+| 6/22 の「自然回復」（§9） | ghostty が Secure Input を解放した瞬間。直前の controller init との相関は偶然 |
+| 6/23 の「make install で回復」（§10-3） | **偶然の一致**。今回バンドル置換では回復しなかった |
+| スリープ復帰との相関 | 復帰時のロック画面パスワード入力や、復帰前後のパスワードプロンプト検出の誤作動で張り付きやすい |
+| wake 直後ではなく数時間後に発症（§10-5, 今回も） | 発症タイミング＝ghostty がパスワードモードを検出した（解放し損ねた）時刻であり、wake そのものではない |
+
+### 11-4. 対処
+
+- **回復**: Secure Input を握っているプロセス（`ioreg` で特定）を再起動する。ghostty なら Cmd+Q → 再起動。リブート不要。
+- **【重要・2026-07-13 実測】保持プロセスを終了しても解放されないことがある。** 今回、旧 ghostty (pid 14255) を Cmd+Q で終了した後も `kCGSSessionSecureInputPID=14255`（死んだ PID）のまま残留し、`IsSecureEventInputEnabled()` も true を返し続けた（WindowServer セッション状態の腐敗）。この場合は **画面ロック（Ctrl+Cmd+Q）→ パスワードでロック解除** で解放される（loginwindow が Secure Input を取得→解放する際に腐った状態が上書きされる）。実際にこれで回復し、直後に `handle` の到着を確認した。
+- **検出（実装済み 2026-07-13）**: `Sources/AkazaIME/SecureInputDiagnostics.swift`
+  - `activateServer` 時に Secure Input 有効なら `SECURE EVENT INPUT ACTIVE (pid=... app...)` を akaza.log に記録
+  - wake 時（didWakeNotification）にも同様に記録
+  - 入力メニューに「⚠️ 「アプリ名」が Secure Input を有効化中 — 日本語入力不可」を表示
+- **予防**: mac-akaza 側では他プロセスの Secure Input を解放できない（OS の仕様）。ghostty 側の解放漏れバグの調査・報告は別途。
+
+### 11-5. 過去の診断コードの扱い
+
+§8 で投入した `[diag]` ログ（往路/復路の計測）は原因特定に決定的な役割を果たした
+（「handle だけ来ない」の確定が Secure Input 説への到達に必須だった）。
+Secure Input 検出を常設化した後、過剰な per-key ログは削減してよい。
+
 ## 付録: 即時回復手段（ユーザー向け）
 
-壊れた状態からの回復は、既知の IMKit バグ上は**ソフトウェア的手段が乏しい**が、2026-06-23 に **reboot 不要の回復**を確認した。
+**2026-07-13 に根本原因が Secure Event Input の解放漏れと確定した（§11）。回復手順は以下。**
 
-- **【有効・確認済み 2026-06-23】`make install`（バンドル置換）で回復する。** `rm -rf ~/Library/Input Methods/Akaza.app` + 新バンドル設置により macOS が入力メソッドを再登録し、OS 側の壊れた接続/登録がクリアされる。実行例: `make install && killall AkazaIME`。
-- **`killall AkazaIME` 単独は回復手段にならない（確認済み, 2026-06-15）。** 同じバンドルに再接続するだけで OS 側の破損は残る。
-- TIS API（`TISEnableInputSource` 等のトグル）・システム設定での削除/再追加は **wedge 中は効かなかった**（2026-06-23）。
-- 最終手段: 再ログイン／リブート。
-- 状態判定は `defaults read` や TIS dump ではなく、**`~/Library/Logs/AkazaIME/akaza.log` に `handle` が来ているか**で行うこと（§10-2）。
+1. 犯人を特定する:
+   ```sh
+   ioreg -l -w 0 | grep -o 'kCGSSessionSecureInputPID"=[0-9]*'
+   ps -p <PID> -o pid,lstart,command
+   ```
+2. そのプロセスを再起動する（ghostty なら Cmd+Q → 再起動）。リブート不要。
+3. **プロセス終了後も解放されない場合**（死んだ PID が残留する）: **画面ロック Ctrl+Cmd+Q → パスワードでロック解除**。2026-07-13 にこれで回復を実測（§11-4）。
+4. 入力メニューに「⚠️ … Secure Input を有効化中」が出ていれば、それが原因表示（実装済み）。
+
+過去に試して**効かなかった**手段（Secure Input が原因なので当然）:
+
+- `killall AkazaIME` 単独（2026-06-15, 2026-07-13）
+- `make install`（バンドル置換）— 2026-06-23 に「回復した」ように見えたのは偶然の一致（2026-07-13 に反証）
+- TIS API トグル・システム設定での削除/再追加（2026-06-23）
+- 入力ソースの手動トグル ABC→Akaza（2026-07-13）
+
+状態判定は `defaults read` や TIS dump ではなく、**`~/Library/Logs/AkazaIME/akaza.log` に `handle` が来ているか**で行うこと（§10-2）。
