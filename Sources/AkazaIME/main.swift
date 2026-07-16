@@ -103,6 +103,10 @@ NSWorkspace.shared.notificationCenter.addObserver(
 
     // IMKServer の wake 時再生成は 2026-06-26 に main thread を詰まらせる疑いが
     // 強くなったため行わない。経路A の回復はバンドル再登録側で検証する。
+
+    // スリープ復帰後 wedge の実原因は Secure Input の解放漏れだった(2026-07-13, docs §11)。
+    // wake 直後に状態を記録しておくと、後の wedge 発症時刻との相関が取れる。
+    SecureInputDiagnostics.logIfActive("didWake")
 }
 
 NSApplication.shared.run()

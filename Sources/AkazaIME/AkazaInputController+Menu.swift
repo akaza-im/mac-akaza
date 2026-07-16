@@ -6,6 +6,16 @@ import InputMethodKit
 extension AkazaInputController {
     override func menu() -> NSMenu! {
         let menu = NSMenu()
+        // Secure Input を他プロセスが握っていると日本語入力が全アプリで効かなくなる。
+        // ユーザーがログを見なくても原因に気づけるよう、入力メニューに警告を出す。
+        if SecureInputDiagnostics.isActive {
+            let holder = SecureInputDiagnostics.holderName() ?? "不明なプロセス"
+            let warnItem = NSMenuItem(
+                title: "⚠️ 「\(holder)」が Secure Input を有効化中 — 日本語入力不可",
+                action: nil, keyEquivalent: "")
+            menu.addItem(warnItem)
+            menu.addItem(NSMenuItem.separator())
+        }
         let registerItem = NSMenuItem(
             title: "単語を登録...", action: #selector(registerWord(_:)), keyEquivalent: "")
         registerItem.target = self

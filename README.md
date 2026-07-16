@@ -69,6 +69,37 @@ tail -50 ~/Library/Logs/AkazaIME/akaza.log
 make install && killall AkazaIME
 ```
 
+## Known Issues
+
+### 突然日本語入力が全アプリで効かなくなる（Secure Event Input）
+
+どこかのアプリが Secure Keyboard Entry（`EnableSecureEventInput`）を有効にしたまま解放しないと、
+macOS は**キーイベントを IME に配送しなくなる**（パスワード入力保護のための OS の仕様）。
+Akaza のプロセスは生きていてエラーも出ないため、IME が壊れたように見えるが、Akaza 側の問題ではない。
+
+ターミナルアプリ（ghostty 等）は sudo / ssh などのパスワードプロンプトを検出すると
+自動で Secure Input を有効化するため、解放漏れが起きるとこの状態に張り付く。
+スリープ復帰後に起きやすいが、発症はパスワードプロンプト検出のタイミングなので復帰の数時間後もある。
+
+**確認方法**:
+
+- 入力メニュー（メニューバーの Akaza アイコン）に「⚠️ 「アプリ名」が Secure Input を有効化中 — 日本語入力不可」と表示される
+- または保持プロセスを直接調べる:
+
+```bash
+ioreg -l -w 0 | grep -o 'kCGSSessionSecureInputPID"=[0-9]*'
+ps -p <PID> -o pid,lstart,command
+```
+
+**回復方法**（リブート不要）:
+
+1. Secure Input を握っているアプリを再起動する（例: ghostty を Cmd+Q → 再起動）
+2. それでも解放されない場合（死んだ PID が保持者として残留することがある）:
+   **画面をロック（Ctrl+Cmd+Q）→ パスワードでロック解除**
+
+`killall AkazaIME` や Akaza の再インストールでは回復しない（Akaza 側に問題がないため）。
+調査の経緯は `docs/sleep-wake-investigation.md` を参照。
+
 ## 関連プロジェクト
 
 - [akaza](https://github.com/akaza-im/akaza) - Rust 製かな漢字変換エンジン (コア)
