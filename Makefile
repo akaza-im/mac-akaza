@@ -58,6 +58,9 @@ bundle: download-model
 install: build bundle
 	rm -rf "$(INSTALL_DIR)/Akaza.app"
 	cp -a $(APP) "$(INSTALL_DIR)/"
+	# out/ 側のバンドルが LaunchServices に登録されると入力メニューに
+	# 同じ入力モードが二重表示されるため、登録を解除しておく
+	/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -u "$(PWD)/$(APP)" || true
 
 clean:
 	rm -rf .build/ $(OUTDIR)/ target/
