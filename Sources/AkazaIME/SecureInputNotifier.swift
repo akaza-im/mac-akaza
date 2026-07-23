@@ -27,6 +27,11 @@ enum SecureInputNotifier {
         if SecureInputDiagnostics.holderBundleIdentifier() == "com.apple.loginwindow" {
             return
         }
+        // フォーカス中アプリ自身の保持は本物のパスワード欄（正当・一時的）なので通知しない。
+        // 解放漏れならフォーカスが他アプリに移った後の activateServer で不一致になり通知される。
+        if SecureInputDiagnostics.holderLooksLegitimate() {
+            return
+        }
         guard !notifiedThisEpisode else { return }
         notifiedThisEpisode = true
         deliver(holderName: SecureInputDiagnostics.holderName())
@@ -56,6 +61,9 @@ enum SecureInputNotifier {
         UNUserNotificationCenter.current().add(request) { error in
             if let error {
                 NSLog("AkazaIME: failed to deliver secure input notification: \(error)")
+            } else {
+                // 通知が実際に出たかを akaza.log から事後確認できるようにする
+                NSLog("AkazaIME: secure input notification delivered (holder=\(holder))")
             }
         }
     }

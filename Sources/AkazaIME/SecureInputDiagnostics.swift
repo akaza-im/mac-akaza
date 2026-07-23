@@ -48,6 +48,23 @@ enum SecureInputDiagnostics {
         return NSRunningApplication(processIdentifier: pid)?.bundleIdentifier
     }
 
+    /// 保持プロセスとフォーカス中アプリの bundleId 比較による正当性判定
+    /// (fcitx5-macos PR #269 の輸入)。
+    /// 一致 = フォーカス中アプリのパスワード欄による正当な Secure Input。
+    /// 不一致 = バックグラウンドアプリの解放漏れの疑い。
+    /// 判定不能（どちらかが nil）は疑わしい側 (false) に倒す。
+    static func isLegitimate(holderBundle: String?, frontmostBundle: String?) -> Bool {
+        guard let holderBundle, let frontmostBundle else { return false }
+        return holderBundle == frontmostBundle
+    }
+
+    /// 現在の保持プロセスがフォーカス中アプリ自身かどうか。
+    static func holderLooksLegitimate() -> Bool {
+        isLegitimate(
+            holderBundle: holderBundleIdentifier(),
+            frontmostBundle: NSWorkspace.shared.frontmostApplication?.bundleIdentifier)
+    }
+
     /// ログ用の保持プロセス説明。例: "pid=14255 Ghostty (com.mitchellh.ghostty)"
     static func holderDescription() -> String {
         guard let pid = holderPID() else { return "holder unknown" }
@@ -60,10 +77,12 @@ enum SecureInputDiagnostics {
     }
 
     /// Secure Input が有効ならログに残す。呼び出し元の文脈を context で示す。
+    /// front / legit は解放漏れか正当なパスワード入力かの事後判別用。
     static func logIfActive(_ context: String) {
         guard isActive else { return }
+        let front = NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "?"
         NSLog(
-            "AkazaIME[diag]: SECURE EVENT INPUT ACTIVE (\(holderDescription())) ctx=\(context) — キーイベントは IME に配送されない"
+            "AkazaIME[diag]: SECURE EVENT INPUT ACTIVE (\(holderDescription())) front=\(front) legit=\(holderLooksLegitimate()) ctx=\(context) — キーイベントは IME に配送されない"
         )
     }
 }
