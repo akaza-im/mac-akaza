@@ -8,7 +8,9 @@ extension AkazaInputController {
         let menu = NSMenu()
         // Secure Input を他プロセスが握っていると日本語入力が全アプリで効かなくなる。
         // ユーザーがログを見なくても原因に気づけるよう、入力メニューに警告を出す。
-        if SecureInputDiagnostics.isActive {
+        // フォーカス中アプリ自身の保持は本物のパスワード欄（正当・一時的）なので警告しない
+        // (fcitx5-macos PR #269 方式)。
+        if SecureInputDiagnostics.isActive && !SecureInputDiagnostics.holderLooksLegitimate() {
             let holder = SecureInputDiagnostics.holderName() ?? "不明なプロセス"
             let warnItem = NSMenuItem(
                 title: "⚠️ 「\(holder)」が Secure Input を有効化中 — 日本語入力不可",
