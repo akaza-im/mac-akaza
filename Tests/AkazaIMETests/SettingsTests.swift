@@ -27,6 +27,22 @@ final class SettingsTests: XCTestCase {
         XCTAssertTrue(settings.showPredictiveCandidates)
     }
 
+    func testNotifyOnSecureInputDefaultsToFalse() {
+        let settings = Settings(defaults: defaults)
+
+        XCTAssertFalse(settings.notifyOnSecureInput)
+    }
+
+    func testNotifyOnSecureInputPersistsTrueAndFalseValues() {
+        let settings = Settings(defaults: defaults)
+
+        settings.notifyOnSecureInput = true
+        XCTAssertTrue(Settings(defaults: defaults).notifyOnSecureInput)
+
+        settings.notifyOnSecureInput = false
+        XCTAssertFalse(Settings(defaults: defaults).notifyOnSecureInput)
+    }
+
     func testShowPredictiveCandidatesPersistsFalseAndTrueValues() {
         let settings = Settings(defaults: defaults)
 

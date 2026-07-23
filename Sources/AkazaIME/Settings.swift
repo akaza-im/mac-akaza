@@ -12,11 +12,15 @@ class Settings {
 
     private enum DefaultsName {
         static let showPredictiveCandidates = "showPredictiveCandidates"
+        static let notifyOnSecureInput = "notifyOnSecureInput"
     }
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        defaults.register(defaults: [DefaultsName.showPredictiveCandidates: true])
+        defaults.register(defaults: [
+            DefaultsName.showPredictiveCandidates: true,
+            DefaultsName.notifyOnSecureInput: false
+        ])
     }
 
     var punctuationStyle: PunctuationStyle {
@@ -32,6 +36,13 @@ class Settings {
     var showPredictiveCandidates: Bool {
         get { defaults.bool(forKey: DefaultsName.showPredictiveCandidates) }
         set { defaults.set(newValue, forKey: DefaultsName.showPredictiveCandidates) }
+    }
+
+    // Secure Input wedge (他プロセスが Secure Event Input を握って日本語入力が死ぬ) の
+    // 検出時にユーザー通知を出すか。通知許可ダイアログを伴うためデフォルトはオフ。
+    var notifyOnSecureInput: Bool {
+        get { defaults.bool(forKey: DefaultsName.notifyOnSecureInput) }
+        set { defaults.set(newValue, forKey: DefaultsName.notifyOnSecureInput) }
     }
 
     var romkanTable: String {

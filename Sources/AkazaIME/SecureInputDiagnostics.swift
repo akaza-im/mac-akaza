@@ -42,6 +42,12 @@ enum SecureInputDiagnostics {
         return NSRunningApplication(processIdentifier: pid)?.localizedName
     }
 
+    /// 保持プロセスの bundle identifier（GUI アプリでなければ nil）。
+    static func holderBundleIdentifier() -> String? {
+        guard let pid = holderPID() else { return nil }
+        return NSRunningApplication(processIdentifier: pid)?.bundleIdentifier
+    }
+
     /// ログ用の保持プロセス説明。例: "pid=14255 Ghostty (com.mitchellh.ghostty)"
     static func holderDescription() -> String {
         guard let pid = holderPID() else { return "holder unknown" }
