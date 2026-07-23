@@ -40,6 +40,7 @@ private func setupLogging() {
     try? FileManager.default.createDirectory(at: logDir, withIntermediateDirectories: true)
 
     let logFile = logDir.appendingPathComponent("akaza.log")
+    LogRotation.rotateIfNeeded(at: logFile)
     if !FileManager.default.fileExists(atPath: logFile.path) {
         FileManager.default.createFile(atPath: logFile.path, contents: nil)
     }
