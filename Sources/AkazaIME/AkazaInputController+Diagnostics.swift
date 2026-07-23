@@ -68,5 +68,6 @@ extension AkazaInputController {
         // Secure Input 中は keyDown が IME に届かない(= handle が来ない wedge に見える)。
         // activateServer は Secure Input 中でも届くので、ここが検出ポイントとして最適。
         SecureInputDiagnostics.logIfActive("activateServer")
+        SecureInputNotifier.check()
     }
 }

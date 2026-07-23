@@ -107,6 +107,7 @@ NSWorkspace.shared.notificationCenter.addObserver(
     // スリープ復帰後 wedge の実原因は Secure Input の解放漏れだった(2026-07-13, docs §11)。
     // wake 直後に状態を記録しておくと、後の wedge 発症時刻との相関が取れる。
     SecureInputDiagnostics.logIfActive("didWake")
+    SecureInputNotifier.check()
 }
 
 NSApplication.shared.run()
