@@ -60,6 +60,47 @@ Secure Event Input を手動で有効化する機能の名称。
 信頼度を区別しており、`/Library/Input Methods` へ移設すれば wedge 自体を回避できる見込みがある。
 Makefile の `INSTALL_DIR` 変更（sudo が必要）または pkg インストーラ化で検証・対応する。
 
+> **【2026-07-24 実測で反証】** 下記「実測: `~/Library` vs `/Library`」の通り、Darwin 25.5.0
+> （macOS 26 系）では **`/Library` 版でも ABC 化は起きた**。macSKK #351 の「`/Library` なら
+> 影響を受けない」はこの環境では再現せず、上記の「移設で wedge を回避できる」含意は成立しない。
+> OS バージョン差（#351 は macOS 15.4.1 = Sequoia）が原因と見られる。
+
+## 実測: `~/Library` vs `/Library`（2026-07-24, Darwin 25.5.0）
+
+macSKK #351 の主張を自環境で検証するため、Terminal.app の Secure Keyboard Entry (SKE) を
+手動で ON/OFF し、入力ソースの `current` と各 Akaza 入力ソースの enabled/selected/selectable、
+バンドルの所在（`~/Library` か `/Library` か）を 0.5s 間隔でサンプリングした
+（スクリプトは scratchpad の `ske-monitor.swift`）。同一 bundleId の衝突を避けるため、
+`/Library` 検証時は `~/Library` 版を退避して一本化した。
+
+観測結果:
+
+| 構成 | SKE 保持アプリ(Terminal)が前面 | 別アプリが前面 | SKE 完全解放後 |
+|---|---|---|---|
+| `~/Library` | `current` が **ABC に強制切替** | `current`=Akaza 維持 | Akaza に復帰（この回は回復） |
+| `/Library` | `current` が **ABC に強制切替**（同じ） | 揺れあり | `current`=ABC 表示だが**ユーザー操作で Akaza に戻せる**（永続 wedge ではない） |
+
+判明したこと:
+
+1. **`/Library` 移設は ABC 化を防がない**。macSKK #351 の「グレーアウト＝ABC 化」現象は
+   `/Library` 版でも起きた。移設は SKE wedge の根本対策にならない（少なくとも Darwin 25.5.0）。
+2. **ABC 化には「SKE 保持アプリがフォアグラウンドにいる」ことが必要**。SKE 有効なだけでは
+   （保持アプリが前面にいない CLI ホルダ）`current`=Akaza を維持し、強制切替は起きなかった。
+   macSKK #351 の「ターミナル起動時から SKE 有効」もこの前面条件を満たしていた。
+3. 観測された `current=ABC` は**受動的な入力ソース値**で、ユーザーが入力ソース切替（英数/かな等）
+   すれば Akaza に戻せる。過去の本物の wedge（Akaza を選んでもキーが一切来ない、
+   sleep-wake-wedge-bug）とは別物。
+4. SKE 中でも `TISSelectInputSource(Akaza)` は `OSStatus=0` で成功し `current`=Akaza に戻せる
+   （ただし UI 上はグレーアウト表示、キーは配送されない）。
+5. 副次: 真の保持者が別プロセスなのにモニタ側で無関係のフォアグラウンドアプリが
+   holder として記録されるケースを再確認（rdar://48953777 の PID 誤記録）。
+
+**結論**: 「pkg 化して `/Library` へ移設すれば SKE wedge が直る」という survey の当初の当て込みは、
+現行 OS では**否定された**。移設は配布形態としては妥当（他 IME もほぼ全て `/Library`）だが、
+SKE wedge の対策としては効かない。本命は **SKE 解放検出後の自動回復**
+（TextExpander 式の true→false ポーリング + 内部状態リセット、または IME プロセスの
+exit→imklaunchagent 再起動）に切り替えるべき。
+
 関連: macSKK [#112](https://github.com/mtgto/macSKK/issues/112)（ディスプレイオフで ABC しか使えなくなる、open）
 にも Secure Input 解放漏れ由来のケースが報告されている（blog.64p.org 2026-07-13 のエントリが引用されている）。
 
@@ -132,18 +173,19 @@ Makefile の `INSTALL_DIR` 変更（sudo が必要）または pkg インスト�
    [回答を持たない](https://developer.apple.com/forums/thread/698113)。
    OS レベルの回復は「画面ロック（Ctrl+Cmd+Q）→ 解錠」が定番（mac-akaza でも 2026-07-13 実測）。
 
-## mac-akaza への輸入候補（優先順）
+## mac-akaza への輸入候補（優先順・2026-07-24 実測後に改訂）
 
-1. **`/Library/Input Methods` への移設**（macSKK 方式）— wedge 自体を回避できる見込みの唯一の根本対策。
-   要検証: SKE を意図的に有効化 → ユーザー/システム両ライブラリで挙動比較。
-2. 済: 検出・ログ・通知（`SecureInputDiagnostics.swift` / `SecureInputNotifier.swift`）、
-   fcitx5 方式の正当性判定、死んだ holder の残留検出。
-3. 警告文言に rdar://48953777（保持者 PID の誤記録）の但し書きを追加。
-4. タイマーポーリングで true→false 遷移を検出し、内部状態をリセット（TextExpander 方式）。
-   「解放されたのに直らない」を潰す最後の網。
-5. 自己修復: 解放検出後も一定時間 handle が来ないなら IME プロセス自身を exit
+1. **自己修復: 解放検出後も一定時間 handle が来ないなら IME プロセス自身を exit**
    （IMKit の IME は必要時に OS が再起動する。`killall AkazaIME` の自動化に相当。SokIM の
-   restartIfIdle パターンの応用）。ただし 1. が効けば不要になる可能性が高い。
+   restartIfIdle パターンの応用）。**当初 5 位だったが、移設が効かないと実測で判明したため本命に昇格。**
+2. タイマーポーリングで true→false 遷移を検出し、内部状態をリセット（TextExpander 方式）。
+   「解放されたのに直らない」を潰す網。1. と組み合わせる。
+3. 済: 検出・ログ・通知（`SecureInputDiagnostics.swift` / `SecureInputNotifier.swift`）、
+   fcitx5 方式の正当性判定、死んだ holder の残留検出。
+4. 警告文言に rdar://48953777（保持者 PID の誤記録）の但し書きを追加。
+5. ~~`/Library/Input Methods` への移設~~ — **2026-07-24 実測で ABC 化を防がないことが判明し、
+   SKE wedge 対策としては降格**。配布形態としては妥当（他 IME もほぼ `/Library`、root 所有で
+   改竄耐性）なので、pkg 化する場合は「wedge 対策ではなく配布の正道化」として位置づける。
 
 ## その他の参考資料
 
