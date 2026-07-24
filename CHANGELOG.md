@@ -1,5 +1,23 @@
 # Changelog
 
+## [v2026.724.0](https://github.com/akaza-im/mac-akaza/compare/v2026.604.0...v2026.724.0) - 2026-07-24
+- fix: ユーザー辞書ダイアログでコピー・ペーストが使えない問題を修正 by @tokuhirom in https://github.com/akaza-im/mac-akaza/pull/103
+- feat: メニューから直接ユーザー辞書に単語を登録できるようにする by @tokuhirom in https://github.com/akaza-im/mac-akaza/pull/102
+- fix: setupApplicationMenu でのクラッシュを修正 by @tokuhirom in https://github.com/akaza-im/mac-akaza/pull/105
+- fix: akaza-server のデフォルトログレベルを warn に変更 by @tokuhirom in https://github.com/akaza-im/mac-akaza/pull/107
+- debug: スリープ復帰 wedge 調査のため経路A(IMKit)に診断ログを追加 by @tokuhirom in https://github.com/akaza-im/mac-akaza/pull/108
+- [codex] Document IMKit review and remove wake server recreation by @tokuhirom in https://github.com/akaza-im/mac-akaza/pull/111
+- [codex] Add TISInputSourceID to Info.plist by @tokuhirom in https://github.com/akaza-im/mac-akaza/pull/112
+- feat: 変換中に0キーで別表記候補ダイアログを表示する by @tokuhirom in https://github.com/akaza-im/mac-akaza/pull/106
+- Secure Event Input の検出・警告を追加 — スリープ復帰 wedge の根本原因確定 by @tokuhirom in https://github.com/akaza-im/mac-akaza/pull/113
+- make install 時に out/ 側バンドルの LaunchServices 登録を解除 by @tokuhirom in https://github.com/akaza-im/mac-akaza/pull/114
+- Secure Input 検出時のユーザー通知を追加（デフォルトオフ） by @tokuhirom in https://github.com/akaza-im/mac-akaza/pull/115
+- akaza.log の起動時ローテーションを追加 by @tokuhirom in https://github.com/akaza-im/mac-akaza/pull/116
+- Secure Input 警告の正当性判定を追加（fcitx5 方式） by @tokuhirom in https://github.com/akaza-im/mac-akaza/pull/117
+- 死んだプロセスが Secure Input を保持し続ける残留状態の警告を追加 by @tokuhirom in https://github.com/akaza-im/mac-akaza/pull/118
+- 他の IMKit IME の Secure Input 対応調査を docs に追加 by @tokuhirom in https://github.com/akaza-im/mac-akaza/pull/119
+- docs: /Library 移設が SKE wedge を防がないことを実測 by @tokuhirom in https://github.com/akaza-im/mac-akaza/pull/120
+
 ## [v2026.604.0](https://github.com/akaza-im/mac-akaza/compare/v2026.601.0...v2026.604.0) - 2026-06-04
 - update: akaza v2026.602.0 へ更新 by @tokuhirom in https://github.com/akaza-im/mac-akaza/pull/96
 - Potential fix for code scanning alert no. 2: Workflow does not contain permissions by @tokuhirom in https://github.com/akaza-im/mac-akaza/pull/98
