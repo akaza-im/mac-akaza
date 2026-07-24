@@ -293,6 +293,7 @@ ps -p 14255 -o pid,lstart,command
   - wake 時（didWakeNotification）にも同様に記録
   - 入力メニューに「⚠️ 「アプリ名」が Secure Input を有効化中 — 日本語入力不可」を表示
 - **予防**: mac-akaza 側では他プロセスの Secure Input を解放できない（OS の仕様）。ghostty 側の解放漏れバグの調査・報告は別途。
+- **【追記 2026-07-24】「IME 側は何もできない」は部分的に誤りの可能性**: macSKK #351 により、`~/Library/Input Methods`（ユーザーライブラリ）の IME は SKE 有効中に無効化され解放後も復帰しないが、`/Library/Input Methods`（システムライブラリ）の IME は影響を受けないことが実証されている。他 IME 実装の調査結果と輸入候補は [secure-input-survey.md](secure-input-survey.md) 参照。
 
 ### 11-5. 過去の診断コードの扱い
 
