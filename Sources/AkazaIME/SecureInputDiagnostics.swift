@@ -36,6 +36,33 @@ enum SecureInputDiagnostics {
         return nil
     }
 
+    /// 保持プロセスの生死を含む状態。
+    ///
+    /// 保持プロセスが終了しても Secure Input が API レベルで解放されず残留することがある
+    /// （2026-07-24 実測: wezterm 終了後も IsSecureEventInputEnabled()=true が 5 分以上継続）。
+    /// このとき「保持アプリを再起動してください」という案内は成立しないため、状態を区別する。
+    enum HolderState: Equatable {
+        /// 保持プロセスが生存している
+        case alive(pid: pid_t)
+        /// 保持プロセスは終了したが Secure Input が解放されていない（残留）
+        case dead(pid: pid_t)
+        /// 保持プロセスの PID が取得できない
+        case unknown
+    }
+
+    static func holderState() -> HolderState {
+        guard let pid = holderPID() else { return .unknown }
+        return isProcessAlive(pid) ? .alive(pid: pid) : .dead(pid: pid)
+    }
+
+    /// プロセスの生存確認。kill(pid, 0) はシグナルを送らず存在チェックだけを行う。
+    /// EPERM は「存在するが権限なし」なので生存扱い。
+    /// NSRunningApplication の nil は「GUI アプリでない」と「死んでいる」を区別できないため使わない。
+    static func isProcessAlive(_ pid: pid_t) -> Bool {
+        if kill(pid, 0) == 0 { return true }
+        return errno == EPERM
+    }
+
     /// 保持プロセスのアプリ名（GUI アプリでなければ nil）。
     static func holderName() -> String? {
         guard let pid = holderPID() else { return nil }
@@ -73,7 +100,7 @@ enum SecureInputDiagnostics {
             let bundle = app.bundleIdentifier ?? "?"
             return "pid=\(pid) \(name) (\(bundle))"
         }
-        return "pid=\(pid)"
+        return isProcessAlive(pid) ? "pid=\(pid)" : "pid=\(pid) (terminated)"
     }
 
     /// Secure Input が有効ならログに残す。呼び出し元の文脈を context で示す。

@@ -11,10 +11,17 @@ extension AkazaInputController {
         // フォーカス中アプリ自身の保持は本物のパスワード欄（正当・一時的）なので警告しない
         // (fcitx5-macos PR #269 方式)。
         if SecureInputDiagnostics.isActive && !SecureInputDiagnostics.holderLooksLegitimate() {
-            let holder = SecureInputDiagnostics.holderName() ?? "不明なプロセス"
-            let warnItem = NSMenuItem(
-                title: "⚠️ 「\(holder)」が Secure Input を有効化中 — 日本語入力不可",
-                action: nil, keyEquivalent: "")
+            let title: String
+            switch SecureInputDiagnostics.holderState() {
+            case .dead(let pid):
+                // 保持プロセスが死んでいる残留状態では再起動する対象がない。
+                // 実測で解放を確認済みの回復手段（画面ロック→解錠）を案内する。
+                title = "⚠️ 終了済みプロセス (pid=\(pid)) が Secure Input を保持中 — 画面ロック→解錠で解放"
+            case .alive, .unknown:
+                let holder = SecureInputDiagnostics.holderName() ?? "不明なプロセス"
+                title = "⚠️ 「\(holder)」が Secure Input を有効化中 — 日本語入力不可"
+            }
+            let warnItem = NSMenuItem(title: title, action: nil, keyEquivalent: "")
             menu.addItem(warnItem)
             menu.addItem(NSMenuItem.separator())
         }
